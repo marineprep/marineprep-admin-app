@@ -85,7 +85,6 @@ class SubjectsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic
   Future<void> addSubject({
     required String name,
     required String description,
-    required int orderIndex,
     required bool isActive,
   }) async {
     try {
@@ -94,6 +93,10 @@ class SubjectsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic
       }
       
       log('Adding subject: $name for exam category ID: $_examCategoryId');
+      
+      // Get the next available order index automatically
+      final orderIndex = await _service.getNextOrderIndex(_examCategoryId!);
+      log('Auto-assigned order index: $orderIndex');
       
       await _service.createSubject(
         name: name,
@@ -131,6 +134,9 @@ class SubjectsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic
         isActive: isActive,
       );
       
+      // Reorder subjects to ensure sequential order
+      await _service.reorderSubjects(_examCategoryId!);
+      
       // Reload subjects list
       await loadSubjects();
       log('Successfully updated subject: $name');
@@ -147,6 +153,9 @@ class SubjectsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic
       
       await _service.deleteSubject(id);
       
+      // Reorder subjects to ensure sequential order after deletion
+      await _service.reorderSubjects(_examCategoryId!);
+      
       // Reload subjects list
       await loadSubjects();
       log('Successfully deleted subject with ID: $id');
@@ -160,5 +169,26 @@ class SubjectsNotifier extends StateNotifier<AsyncValue<List<Map<String, dynamic
   void refresh() {
     log('Refreshing subjects');
     loadSubjects();
+  }
+
+  // Move subject to a specific position
+  Future<void> moveSubjectToPosition(String subjectId, int newPosition) async {
+    try {
+      if (_examCategoryId == null) {
+        throw Exception('Exam category ID not resolved');
+      }
+      
+      log('Moving subject $subjectId to position $newPosition');
+      
+      await _service.moveSubjectToPosition(subjectId, newPosition, _examCategoryId!);
+      
+      // Reload subjects list
+      await loadSubjects();
+      log('Successfully moved subject to position $newPosition');
+    } catch (error, stackTrace) {
+      log('Error moving subject: $error');
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
   }
 }

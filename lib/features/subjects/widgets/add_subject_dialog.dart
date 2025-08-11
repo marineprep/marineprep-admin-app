@@ -86,22 +86,26 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
                 ]),
               ),
               const SizedBox(height: 16),
-              FormBuilderTextField(
-                name: 'orderIndex',
-                initialValue: widget.subject?.orderIndex.toString() ?? '1',
-                decoration: const InputDecoration(
-                  labelText: 'Order Index',
-                  hintText: 'Display order (1, 2, 3...)',
-                  prefixIcon: Icon(Iconsax.sort),
+              // Order index is now automatically managed
+              if (isEditing) ...[
+                FormBuilderTextField(
+                  name: 'orderIndex',
+                  initialValue: widget.subject?.orderIndex.toString() ?? '1',
+                  decoration: const InputDecoration(
+                    labelText: 'Order Index',
+                    hintText: 'Display order (1, 2, 3...)',
+                    prefixIcon: Icon(Iconsax.sort),
+                    helperText: 'You can change the order, others will be reordered automatically',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: FormBuilderValidators.compose([
+                    FormBuilderValidators.required(),
+                    FormBuilderValidators.integer(),
+                    FormBuilderValidators.min(1),
+                  ]),
                 ),
-                keyboardType: TextInputType.number,
-                validator: FormBuilderValidators.compose([
-                  FormBuilderValidators.required(),
-                  FormBuilderValidators.integer(),
-                  FormBuilderValidators.min(1),
-                ]),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
               FormBuilderCheckbox(
                 name: 'isActive',
                 initialValue: widget.subject?.isActive ?? true,
@@ -155,24 +159,29 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
       final formData = _formKey.currentState!.value;
       final name = formData['name'] as String;
       final description = formData['description'] as String;
-      final orderIndex = int.parse(formData['orderIndex'] as String);
       final isActive = formData['isActive'] as bool;
 
       if (isEditing) {
+        // For editing, get the order index if it exists, otherwise use current
+        int? orderIndex;
+        if (formData.containsKey('orderIndex') && formData['orderIndex'] != null) {
+          orderIndex = int.tryParse(formData['orderIndex'] as String);
+        }
+        
         await ref.read(subjectsProvider(widget.examCategoryId).notifier)
             .updateSubject(
               id: widget.subject!.id,
               name: name,
               description: description,
-              orderIndex: orderIndex,
+              orderIndex: orderIndex ?? widget.subject!.orderIndex,
               isActive: isActive,
             );
       } else {
+        // For new subjects, order index is automatic
         await ref.read(subjectsProvider(widget.examCategoryId).notifier)
             .addSubject(
               name: name,
               description: description,
-              orderIndex: orderIndex,
               isActive: isActive,
             );
       }

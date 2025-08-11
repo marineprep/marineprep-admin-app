@@ -50,8 +50,7 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   Future<void> addTopic({
     required String name,
     required String description,
-    required int orderIndex,
-    required List<Map<String, dynamic>> videos,
+    required List<VideoFile> videos,
     String? notesUrl,
     String? notesFileName,
     required bool isActive,
@@ -59,12 +58,16 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
     try {
       log('Adding topic: $name for subject ID: $_subjectId');
       
+      // Get the next available order index automatically
+      final orderIndex = await _service.getNextOrderIndex(_subjectId);
+      log('Auto-assigned order index: $orderIndex');
+      
       await _service.createTopic(
         name: name,
         description: description,
         subjectId: _subjectId,
         orderIndex: orderIndex,
-        videos: videos,
+        videos: videos.map((video) => video.toJson()).toList(),
         notesUrl: notesUrl,
         notesFileName: notesFileName,
         isActive: isActive,
@@ -85,7 +88,7 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
     required String name,
     required String description,
     required int orderIndex,
-    required List<Map<String, dynamic>> videos,
+    required List<VideoFile> videos,
     String? notesUrl,
     String? notesFileName,
     required bool isActive,
@@ -98,11 +101,14 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
         name: name,
         description: description,
         orderIndex: orderIndex,
-        videos: videos,
+        videos: videos.map((video) => video.toJson()).toList(),
         notesUrl: notesUrl,
         notesFileName: notesFileName,
         isActive: isActive,
       );
+      
+      // Reorder topics to ensure sequential order
+      await _service.reorderTopics(_subjectId);
       
       // Reload topics list
       await loadTopics();
@@ -120,6 +126,9 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
       
       await _service.deleteTopic(id);
       
+      // Reorder topics to ensure sequential order after deletion
+      await _service.reorderTopics(_subjectId);
+      
       // Reload topics list
       await loadTopics();
       log('Successfully deleted topic with ID: $id');
@@ -133,5 +142,22 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   void refresh() {
     log('Refreshing topics for subject ID: $_subjectId');
     loadTopics();
+  }
+
+  // Move topic to a specific position
+  Future<void> moveTopicToPosition(String topicId, int newPosition) async {
+    try {
+      log('Moving topic $topicId to position $newPosition');
+      
+      await _service.moveTopicToPosition(topicId, newPosition, _subjectId);
+      
+      // Reload topics list
+      await loadTopics();
+      log('Successfully moved topic to position $newPosition');
+    } catch (error, stackTrace) {
+      log('Error moving topic: $error');
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
   }
 }

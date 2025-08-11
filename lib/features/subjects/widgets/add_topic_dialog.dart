@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
@@ -6,8 +7,10 @@ import 'package:iconsax/iconsax.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/config/supabase_config.dart';
 import '../models/topic.dart';
 import '../providers/topics_provider.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class AddTopicDialog extends ConsumerStatefulWidget {
   final String subjectId;
@@ -107,22 +110,26 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                FormBuilderTextField(
-                  name: 'orderIndex',
-                  initialValue: widget.topic?.orderIndex.toString() ?? '1',
-                  decoration: const InputDecoration(
-                    labelText: 'Order Index',
-                    hintText: 'Display order (1, 2, 3...)',
-                    prefixIcon: Icon(Iconsax.sort),
+                // Order index is now automatically managed
+                if (isEditing) ...[
+                  FormBuilderTextField(
+                    name: 'orderIndex',
+                    initialValue: widget.topic?.orderIndex.toString() ?? '1',
+                    decoration: const InputDecoration(
+                      labelText: 'Order Index',
+                      hintText: 'Display order (1, 2, 3...)',
+                      prefixIcon: Icon(Iconsax.sort),
+                      helperText: 'You can change the order, others will be reordered automatically',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(),
+                      FormBuilderValidators.integer(),
+                      FormBuilderValidators.min(1),
+                    ]),
                   ),
-                  keyboardType: TextInputType.number,
-                  validator: FormBuilderValidators.compose([
-                    FormBuilderValidators.required(),
-                    FormBuilderValidators.integer(),
-                    FormBuilderValidators.min(1),
-                  ]),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
+                ],
 
                 // Video Section
                 Text(
@@ -568,39 +575,110 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
     });
 
     try {
+      // Debug: Check authentication status
+      final authState = ref.read(authNotifierProvider);
+      log('Auth state: $authState');
+      
+      // Safely get current user from auth state
+      final currentUser = authState.when(
+        data: (user) => user,
+        loading: () => null,
+        error: (error, stack) => null,
+      );
+      
+      log('Current user: ${currentUser?.email}');
+      log('Is authenticated: ${currentUser != null}');
+      
+      // Check if user is authenticated
+      if (currentUser == null) {
+        throw Exception('User must be authenticated to upload files');
+      }
+
+      // Debug: Test storage access
+      try {
+        final testResponse = await SupabaseConfig.client.storage
+            .from('videos')
+            .list();
+        log('Storage access test successful: ${testResponse.length} files');
+      } catch (e) {
+        log('Storage access test failed: $e');
+        // Don't throw here, just log the error for debugging
+      }
+
       final formData = _formKey.currentState!.value;
-      final name = formData['name'] as String;
-      final description = formData['description'] as String;
-      final orderIndex = int.parse(formData['orderIndex'] as String);
-      final isActive = formData['isActive'] as bool;
+      log('Form data: $formData');
+      
+      // Safely extract form values with validation
+      final name = formData['name'] as String?;
+      final description = formData['description'] as String?;
+      final isActive = formData['isActive'] as bool?;
+      
+      // Validate required fields
+      if (name == null || name.trim().isEmpty) {
+        throw Exception('Topic name is required');
+      }
+      if (description == null || description.trim().isEmpty) {
+        throw Exception('Topic description is required');
+      }
+      
+      final finalIsActive = isActive ?? true;
+      
+      // For editing, get order index if available, otherwise use current
+      int orderIndex;
+      if (isEditing) {
+        final orderIndexStr = formData['orderIndex'] as String?;
+        if (orderIndexStr != null && orderIndexStr.trim().isNotEmpty) {
+          final parsedOrderIndex = int.tryParse(orderIndexStr);
+          if (parsedOrderIndex == null || parsedOrderIndex < 1) {
+            throw Exception('Order index must be a positive number');
+          }
+          orderIndex = parsedOrderIndex;
+        } else {
+          orderIndex = widget.topic!.orderIndex;
+        }
+      } else {
+        // For new topics, order index will be auto-assigned
+        orderIndex = 1; // This will be overridden by the service
+      }
+      
+      log('Extracted form data - Name: $name, Description: $description, Order: $orderIndex, Active: $finalIsActive');
 
       // Prepare videos data
-      List<Map<String, dynamic>> videosData = [];
+      List<VideoFile> videosData = [];
+      log('Preparing videos data. Editing mode: $isEditing');
       
       // Keep existing videos if editing
       if (isEditing) {
-        videosData = widget.topic!.videos.map((video) => {
-          'url': video.url,
-          'fileName': video.fileName,
-          'fileSize': video.fileSize,
-        }).toList();
+        videosData = List<VideoFile>.from(widget.topic!.videos);
+        log('Keeping ${videosData.length} existing videos');
       }
 
       // Upload new video files and add to videos data
       final topicsService = ref.read(topicsServiceProvider);
+      log('Starting video uploads for ${_selectedVideos.length} videos');
+      
       for (final videoFile in _selectedVideos) {
         if (videoFile.bytes != null) {
-          final videoUrl = await topicsService.uploadFile(
-            path: videoFile.name,
-            bucket: AppConstants.videosBucket,
-            fileBytes: videoFile.bytes!,
-          );
-          
-          videosData.add({
-            'url': videoUrl,
-            'fileName': videoFile.name,
-            'fileSize': videoFile.size,
-          });
+          log('Uploading video: ${videoFile.name}, size: ${videoFile.size} bytes');
+          try {
+            final videoUrl = await topicsService.uploadFile(
+              path: videoFile.name,
+              bucket: AppConstants.videosBucket,
+              fileBytes: videoFile.bytes!,
+            );
+            
+            videosData.add(VideoFile(
+              url: videoUrl,
+              fileName: videoFile.name,
+              fileSize: videoFile.size,
+            ));
+            log('Video uploaded successfully: $videoUrl');
+          } catch (e) {
+            log('Failed to upload video ${videoFile.name}: $e');
+            rethrow; // Re-throw to stop the process
+          }
+        } else {
+          log('Video file ${videoFile.name} has no bytes');
         }
       }
 
@@ -609,20 +687,52 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       String? notesFileName;
       
       if (_selectedNotes != null && _selectedNotes!.bytes != null) {
-        notesUrl = await topicsService.uploadFile(
-          bucket: AppConstants.notesBucket,
-          path: _selectedNotes!.name,
-          fileBytes: _selectedNotes!.bytes!,
-        );
-        notesFileName = _selectedNotes!.name;
+        log('Uploading notes: ${_selectedNotes!.name}, size: ${_selectedNotes!.size} bytes');
+        try {
+          notesUrl = await topicsService.uploadFile(
+            bucket: AppConstants.notesBucket,
+            path: _selectedNotes!.name,
+            fileBytes: _selectedNotes!.bytes!,
+          );
+          notesFileName = _selectedNotes!.name;
+          log('Notes uploaded successfully: $notesUrl');
+        } catch (e) {
+          log('Failed to upload notes ${_selectedNotes!.name}: $e');
+          rethrow; // Re-throw to stop the process
+        }
       } else if (isEditing) {
         // Keep existing notes if no new notes selected
         notesUrl = widget.topic!.notesUrl;
         notesFileName = widget.topic!.notesFileName;
+        log('Keeping existing notes: $notesUrl');
+      } else {
+        // For new topics, ensure notes fields are null if no notes selected
+        notesUrl = null;
+        notesFileName = null;
+        log('No notes selected for new topic');
       }
 
       // Save topic to database
+      log('About to save topic. Videos count: ${videosData.length}, Notes URL: $notesUrl');
+      
+      // Validate videos data
+      for (int i = 0; i < videosData.length; i++) {
+        final video = videosData[i];
+        log('Video $i: URL=${video.url}, FileName=${video.fileName}, FileSize=${video.fileSize}');
+        if (video.url.isEmpty || video.fileName.isEmpty) {
+          throw Exception('Invalid video data at index $i');
+        }
+      }
+      
+      // Additional validation for null safety
+      if (name.isEmpty || description.isEmpty) {
+        throw Exception('Name and description cannot be empty');
+      }
+      
+      log('Final validation passed. Proceeding to save topic...');
+      
       if (isEditing) {
+        log('Updating existing topic with ID: ${widget.topic!.id}');
         await ref.read(topicsProvider(widget.subjectId).notifier)
             .updateTopic(
               id: widget.topic!.id,
@@ -632,18 +742,18 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
               videos: videosData,
               notesUrl: notesUrl,
               notesFileName: notesFileName,
-              isActive: isActive,
+              isActive: finalIsActive,
             );
       } else {
+        log('Creating new topic');
         await ref.read(topicsProvider(widget.subjectId).notifier)
             .addTopic(
               name: name,
               description: description,
-              orderIndex: orderIndex,
               videos: videosData,
               notesUrl: notesUrl,
               notesFileName: notesFileName,
-              isActive: isActive,
+              isActive: finalIsActive,
             );
       }
 

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -59,6 +60,65 @@ class SubjectsPage extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
 
+            // Filter Toggle
+            Row(
+              children: [
+                Text(
+                  'Show Inactive Items:',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  value: true, // Always show all items in admin
+                  onChanged: null, // Disabled - admin always sees all
+                  activeColor: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'All items visible (Admin view)',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.gray600,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.primary,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Iconsax.info_circle,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Active/Inactive status controls user app visibility',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
             // Subjects Grid
             Expanded(child: _SubjectsGrid(examCategoryId: examCategoryId)),
           ],
@@ -83,6 +143,36 @@ class _SubjectsGrid extends ConsumerWidget {
   final String examCategoryId;
 
   const _SubjectsGrid({required this.examCategoryId});
+
+  void _onSubjectReorder(
+    WidgetRef ref,
+    List<Map<String, dynamic>> subjects,
+    int oldIndex,
+    int newIndex,
+    String examCategoryId,
+  ) {
+    try {
+      // Convert reversed index to actual index
+      final actualOldIndex = subjects.length - 1 - oldIndex;
+      final actualNewIndex = subjects.length - 1 - newIndex;
+      
+      if (actualOldIndex < 0 || actualNewIndex < 0 || 
+          actualOldIndex >= subjects.length || actualNewIndex >= subjects.length) {
+        return;
+      }
+
+      final subject = subjects[actualOldIndex]['subject'] as Subject;
+      final newPosition = actualNewIndex + 1; // Convert to 1-based position
+      
+      log('Reordering subject ${subject.name} from position ${subject.orderIndex} to $newPosition');
+      
+      // Move the subject to the new position
+      ref.read(subjectsProvider(examCategoryId).notifier)
+          .moveSubjectToPosition(subject.id, newPosition);
+    } catch (e) {
+      log('Error reordering subject: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,13 +260,56 @@ class _SubjectCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    subject.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      subject.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  // Active/Inactive Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: subject.isActive 
+                          ? AppColors.success.withOpacity(0.1)
+                          : AppColors.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: subject.isActive 
+                            ? AppColors.success
+                            : AppColors.warning,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          subject.isActive ? Iconsax.tick_circle : Iconsax.close_circle,
+                          size: 12,
+                          color: subject.isActive 
+                              ? AppColors.success
+                              : AppColors.warning,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          subject.isActive ? 'Active' : 'Inactive',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: subject.isActive 
+                                ? AppColors.success
+                                : AppColors.warning,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   PopupMenuButton<String>(
                     onSelected: (value) =>
                         _handleMenuAction(context, ref, value, subject),

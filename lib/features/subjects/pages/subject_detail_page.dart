@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -181,6 +182,41 @@ class SubjectDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
+                // Filter Info
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Iconsax.info_circle,
+                        size: 20,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'All topics are visible in the admin panel. The Active/Inactive status controls whether topics appear in the user app.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.gray700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Topics List
                 Expanded(
                   child: _TopicsList(subjectId: subjectId),
@@ -205,6 +241,36 @@ class _TopicsList extends ConsumerWidget {
   final String subjectId;
   
   const _TopicsList({required this.subjectId});
+
+  void _onTopicReorder(
+    WidgetRef ref,
+    List<Topic> topics,
+    int oldIndex,
+    int newIndex,
+    String subjectId,
+  ) {
+    try {
+      // Convert reversed index to actual index
+      final actualOldIndex = topics.length - 1 - oldIndex;
+      final actualNewIndex = topics.length - 1 - newIndex;
+      
+      if (actualOldIndex < 0 || actualNewIndex < 0 || 
+          actualOldIndex >= topics.length || actualNewIndex >= topics.length) {
+        return;
+      }
+
+      final topic = topics[actualOldIndex];
+      final newPosition = actualNewIndex + 1; // Convert to 1-based position
+      
+      log('Reordering topic ${topic.name} from position ${topic.orderIndex} to $newPosition');
+      
+      // Move the topic to the new position
+      ref.read(topicsProvider(subjectId).notifier)
+          .moveTopicToPosition(topic.id, newPosition);
+    } catch (e) {
+      log('Error reordering topic: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -244,7 +310,10 @@ class _TopicsList extends ConsumerWidget {
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final topic = topics.reversed.toList()[index];
-            return _TopicCard(topic: topic, subjectId: subjectId);
+            return _TopicCard(
+              topic: topic, 
+              subjectId: subjectId,
+            );
           },
         );
       },
@@ -307,6 +376,48 @@ class _TopicCard extends ConsumerWidget {
                         topic.description,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.gray600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Active/Inactive Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: topic.isActive 
+                              ? AppColors.success.withOpacity(0.1)
+                              : AppColors.warning.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: topic.isActive 
+                                ? AppColors.success
+                                : AppColors.warning,
+                                width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              topic.isActive ? Iconsax.tick_circle : Iconsax.close_circle,
+                              size: 12,
+                              color: topic.isActive 
+                                  ? AppColors.success
+                                  : AppColors.warning,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              topic.isActive ? 'Active' : 'Inactive',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: topic.isActive 
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

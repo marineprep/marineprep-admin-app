@@ -37,7 +37,7 @@ VALUES (
   true, 
   104857600, -- 100MB limit
   ARRAY['video/mp4', 'video/mov', 'video/avi', 'video/webm']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- Create notes bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -47,7 +47,7 @@ VALUES (
   true, 
   52428800, -- 50MB limit
   ARRAY['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- Create images bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -57,16 +57,22 @@ VALUES (
   true, 
   10485760, -- 10MB limit
   ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-);
+) ON CONFLICT (id) DO NOTHING;
 ```
 
 #### Storage RLS (Row Level Security) Policies
 
-Create RLS policies for authenticated users to access storage:
+**IMPORTANT**: Run these SQL commands in your Supabase SQL Editor to fix the file upload issue:
 
 ```sql
 -- Enable RLS on storage.objects
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (to avoid conflicts)
+DROP POLICY IF EXISTS "Authenticated users can upload files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can view files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update files" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete files" ON storage.objects;
 
 -- Policy for authenticated users to upload files
 CREATE POLICY "Authenticated users can upload files" ON storage.objects
@@ -83,6 +89,10 @@ FOR UPDATE USING (auth.role() = 'authenticated');
 -- Policy for authenticated users to delete their files
 CREATE POLICY "Authenticated users can delete files" ON storage.objects
 FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Alternative: If you want to allow all operations for authenticated users
+-- CREATE POLICY "Allow all operations for authenticated users" ON storage.objects
+-- FOR ALL USING (auth.role() = 'authenticated');
 ```
 
 ### 3. Database RLS Policies
@@ -102,6 +112,16 @@ ALTER TABLE practice_test_answers ENABLE ROW LEVEL SECURITY;
 
 #### Create RLS Policies for Admin Access
 ```sql
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Authenticated users can access exam categories" ON exam_categories;
+DROP POLICY IF EXISTS "Authenticated users can access subjects" ON subjects;
+DROP POLICY IF EXISTS "Authenticated users can access topics" ON topics;
+DROP POLICY IF EXISTS "Authenticated users can access questions" ON questions;
+DROP POLICY IF EXISTS "Authenticated users can access roadmap steps" ON roadmap_steps;
+DROP POLICY IF EXISTS "Users can access their own progress" ON user_roadmap_progress;
+DROP POLICY IF EXISTS "Users can access their own practice sessions" ON practice_test_sessions;
+DROP POLICY IF EXISTS "Users can access their own practice answers" ON practice_test_answers;
+
 -- Policy for authenticated users to access exam categories
 CREATE POLICY "Authenticated users can access exam categories" ON exam_categories
 FOR ALL USING (auth.role() = 'authenticated');
@@ -200,6 +220,7 @@ class AppConstants {
 2. **"RLS policy violation" error**
    - Ensure RLS policies are created for all tables
    - Verify the user is authenticated before accessing data
+   - **For storage uploads**: Make sure you've run the storage RLS policies above
 
 3. **"Authentication failed" error**
    - Check your Supabase URL and anon key
@@ -210,6 +231,7 @@ class AppConstants {
    - Check file size limits in bucket configuration
    - Verify allowed MIME types
    - Ensure RLS policies allow file uploads
+   - **Most common fix**: Run the storage RLS policies in section 2
 
 ### Debug Steps
 1. Check browser console for detailed error messages
@@ -229,7 +251,8 @@ If you encounter issues:
 
 - [ ] Email authentication enabled
 - [ ] Storage buckets created
-- [ ] RLS policies configured
+- [ ] Storage RLS policies configured (IMPORTANT for file uploads)
+- [ ] Database RLS policies configured
 - [ ] Environment variables set
 - [ ] Authentication tested
 - [ ] Storage access tested

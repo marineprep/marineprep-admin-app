@@ -15,7 +15,6 @@ class ExamCategoriesService {
           .from('exam_categories')
           .select('id')
           .eq('name', name)
-          .eq('is_active', true)
           .single();
 
       final categoryId = response['id'] as String;
@@ -36,7 +35,6 @@ class ExamCategoriesService {
       final response = await _supabase
           .from('exam_categories')
           .select()
-          .eq('is_active', true)
           .order('name');
 
       final categories = (response as List)

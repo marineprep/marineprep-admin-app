@@ -108,6 +108,41 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
             ),
             const SizedBox(height: 24),
 
+            // Filter Info
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Iconsax.info_circle,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'All questions are visible in the admin panel. The Active/Inactive status controls whether questions appear in the user app.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.gray700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
             // Questions List
             Expanded(
               child: selectedSubjectId != null
