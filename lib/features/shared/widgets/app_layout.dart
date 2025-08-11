@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../auth/providers/auth_provider.dart';
 
-class AppLayout extends StatelessWidget {
+class AppLayout extends ConsumerWidget {
   final Widget body;
   final String currentRoute;
 
@@ -15,12 +17,17 @@ class AppLayout extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider);
+
     return Scaffold(
       body: Row(
         children: [
           // Sidebar
-          _Sidebar(currentRoute: currentRoute),
+          _Sidebar(
+            currentRoute: currentRoute,
+            currentUser: currentUser,
+          ),
           // Main Content
           Expanded(
             child: body,
@@ -31,13 +38,17 @@ class AppLayout extends StatelessWidget {
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends ConsumerWidget {
   final String currentRoute;
+  final dynamic currentUser;
 
-  const _Sidebar({required this.currentRoute});
+  const _Sidebar({
+    required this.currentRoute,
+    required this.currentUser,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final menuItems = [
       _MenuItem(
         icon: Iconsax.element_3,
@@ -140,7 +151,7 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
 
-          // Footer
+          // Footer with User Profile
           Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -164,13 +175,13 @@ class _Sidebar extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Admin User',
+                            currentUser?.fullName ?? 'Admin User',
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
-                            'admin@marineprep.com',
+                            currentUser?.email ?? 'admin@marineprep.com',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.gray600,
                             ),
@@ -178,10 +189,97 @@ class _Sidebar extends StatelessWidget {
                         ],
                       ),
                     ),
+                    PopupMenuButton<String>(
+                      onSelected: (value) => _handleMenuAction(context, ref, value),
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'profile',
+                          child: Row(
+                            children: [
+                              Icon(Iconsax.user),
+                              SizedBox(width: 8),
+                              Text('Profile'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'signout',
+                          child: Row(
+                            children: [
+                              Icon(Iconsax.logout, color: AppColors.error),
+                              SizedBox(width: 8),
+                              Text(
+                                'Sign Out',
+                                style: TextStyle(color: AppColors.error),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: const Icon(Iconsax.more, color: AppColors.gray400),
+                    ),
                   ],
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action) {
+    switch (action) {
+      case 'profile':
+        // TODO: Navigate to profile page
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile page coming soon!'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        break;
+      case 'signout':
+        _showSignOutDialog(context, ref);
+        break;
+    }
+  }
+
+  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              try {
+                await ref.read(authNotifierProvider.notifier).signOut();
+                if (context.mounted) {
+                  context.go('/auth/login');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Sign out failed: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sign Out'),
           ),
         ],
       ),
