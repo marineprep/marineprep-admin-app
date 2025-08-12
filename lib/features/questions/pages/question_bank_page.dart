@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_layout.dart';
+import '../../subjects/providers/subjects_provider.dart';
 import '../widgets/add_question_dialog.dart';
 import '../models/question.dart';
+import '../providers/questions_provider.dart';
 
 class QuestionBankPage extends ConsumerStatefulWidget {
   const QuestionBankPage({super.key});
@@ -15,17 +17,13 @@ class QuestionBankPage extends ConsumerStatefulWidget {
 
 class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
   String? selectedSubjectId;
-  
-  // Mock subjects data
-  final List<Map<String, String>> subjects = [
-    {'id': '1', 'name': 'Mathematics'},
-    {'id': '2', 'name': 'Physics'},
-    {'id': '3', 'name': 'Chemistry'},
-    {'id': '4', 'name': 'English'},
-  ];
+  String? selectedSubjectName;
 
   @override
   Widget build(BuildContext context) {
+    // Watch subjects for IMUCET exam category
+    final subjectsAsync = ref.watch(subjectsProvider('IMUCET'));
+
     return AppLayout(
       currentRoute: '/question-bank',
       body: Padding(
@@ -87,20 +85,29 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedSubjectId,
-                      hint: const Text('Choose a subject'),
-                      items: subjects.map((subject) {
-                        return DropdownMenuItem<String>(
-                          value: subject['id'],
-                          child: Text(subject['name']!),
+                    child: subjectsAsync.when(
+                      data: (subjectsData) {
+                        final subjects = subjectsData.map((data) => data['subject']).cast<dynamic>().toList();
+                        return DropdownButton<String>(
+                          value: selectedSubjectId,
+                          hint: const Text('Choose a subject'),
+                          items: subjects.map<DropdownMenuItem<String>>((subject) {
+                            return DropdownMenuItem<String>(
+                              value: subject.id,
+                              child: Text(subject.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            final selectedSubject = subjects.firstWhere((s) => s.id == value);
+                            setState(() {
+                              selectedSubjectId = value;
+                              selectedSubjectName = selectedSubject.name;
+                            });
+                          },
                         );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedSubjectId = value;
-                        });
                       },
+                      loading: () => const CircularProgressIndicator(),
+                      error: (error, stack) => Text('Error: $error'),
                     ),
                   ),
                 ),
@@ -146,7 +153,10 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
             // Questions List
             Expanded(
               child: selectedSubjectId != null
-                  ? _QuestionsList(subjectId: selectedSubjectId!)
+                  ? _QuestionsList(
+                      subjectId: selectedSubjectId!,
+                      subjectName: selectedSubjectName!,
+                    )
                   : _NoSubjectSelected(),
             ),
           ],
@@ -166,107 +176,123 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
   }
 }
 
-class _QuestionsList extends StatelessWidget {
+class _QuestionsList extends ConsumerWidget {
   final String subjectId;
+  final String subjectName;
 
-  const _QuestionsList({required this.subjectId});
-
-  // Mock questions data
-  List<Question> get questions => [
-    Question(
-      id: '1',
-      questionText: 'What is the derivative of x²?',
-      subjectId: subjectId,
-      sectionType: 'question_bank',
-      answerChoices: const [
-        AnswerChoice(label: 'A', text: 'x'),
-        AnswerChoice(label: 'B', text: '2x'),
-        AnswerChoice(label: 'C', text: 'x²'),
-        AnswerChoice(label: 'D', text: '2x²'),
-      ],
-      correctAnswer: 'B',
-      explanationText: 'The derivative of x² is 2x using the power rule.',
-      difficultyLevel: 2,
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    Question(
-      id: '2',
-      questionText: 'Which of the following is the quadratic formula?',
-      questionImageUrl: 'https://example.com/quadratic_formula.png',
-      subjectId: subjectId,
-      sectionType: 'question_bank',
-      answerChoices: const [
-        AnswerChoice(label: 'A', text: 'x = -b ± √(b² - 4ac) / 2a'),
-        AnswerChoice(label: 'B', text: 'x = b ± √(b² + 4ac) / 2a'),
-        AnswerChoice(label: 'C', text: 'x = -b ± √(b² + 4ac) / 2a'),
-        AnswerChoice(label: 'D', text: 'x = b ± √(b² - 4ac) / 2a'),
-      ],
-      correctAnswer: 'A',
-      explanationText: 'The quadratic formula is used to solve equations of the form ax² + bx + c = 0.',
-      difficultyLevel: 3,
-      isActive: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-  ];
+  const _QuestionsList({
+    required this.subjectId,
+    required this.subjectName,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    if (questions.isEmpty) {
-      return _EmptyQuestionsState();
-    }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final questionsFilter = QuestionsFilter(
+      subjectId: subjectId,
+      sectionType: 'question_bank',
+    );
+    
+    final questionsAsync = ref.watch(questionsProvider(questionsFilter));
+    final statsAsync = ref.watch(questionsStatsProvider(questionsFilter));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Stats
-        Row(
+    return questionsAsync.when(
+      data: (questions) {
+        if (questions.isEmpty) {
+          return _EmptyQuestionsState(subjectName: subjectName);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _StatChip(
-              icon: Iconsax.task_square,
-              label: 'Total Questions',
-              value: '${questions.length}',
-              color: AppColors.primary,
+            // Stats
+            statsAsync.when(
+              data: (stats) => Row(
+                children: [
+                  _StatChip(
+                    icon: Iconsax.task_square,
+                    label: 'Total Questions',
+                    value: '${stats['total']}',
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 16),
+                  _StatChip(
+                    icon: Iconsax.flash,
+                    label: 'Easy',
+                    value: '${stats['easy']}',
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: 16),
+                  _StatChip(
+                    icon: Iconsax.flash_1,
+                    label: 'Medium',
+                    value: '${stats['medium']}',
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 16),
+                  _StatChip(
+                    icon: Iconsax.flash_circle,
+                    label: 'Hard',
+                    value: '${stats['hard']}',
+                    color: AppColors.error,
+                  ),
+                ],
+              ),
+              loading: () => const SizedBox(height: 40),
+              error: (error, stack) => const SizedBox(height: 40),
             ),
-            const SizedBox(width: 16),
-            _StatChip(
-              icon: Iconsax.flash,
-              label: 'Easy',
-              value: '${questions.where((q) => q.difficultyLevel <= 2).length}',
-              color: AppColors.success,
+            const SizedBox(height: 24),
+
+            // Questions
+            Expanded(
+              child: ListView.separated(
+                itemCount: questions.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final question = questions[index];
+                  return _QuestionCard(question: question);
+                },
+              ),
             ),
-            const SizedBox(width: 16),
-            _StatChip(
-              icon: Iconsax.flash_1,
-              label: 'Medium',
-              value: '${questions.where((q) => q.difficultyLevel == 3).length}',
-              color: AppColors.warning,
-            ),
-            const SizedBox(width: 16),
-            _StatChip(
-              icon: Iconsax.flash_circle,
-              label: 'Hard',
-              value: '${questions.where((q) => q.difficultyLevel >= 4).length}',
+          ],
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(),
+      ),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Iconsax.warning_2,
+              size: 64,
               color: AppColors.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading questions',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.gray600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton(
+              onPressed: () {
+                ref.invalidate(questionsProvider(questionsFilter));
+              },
+              child: const Text('Retry'),
             ),
           ],
         ),
-        const SizedBox(height: 24),
-
-        // Questions
-        Expanded(
-          child: ListView.separated(
-            itemCount: questions.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final question = questions[index];
-              return _QuestionCard(question: question);
-            },
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -322,13 +348,13 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class _QuestionCard extends StatelessWidget {
+class _QuestionCard extends ConsumerWidget {
   final Question question;
 
   const _QuestionCard({required this.question});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final difficultyColor = _getDifficultyColor(question.difficultyLevel);
 
     return Card(
@@ -356,7 +382,7 @@ class _QuestionCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
-                  onSelected: (value) => _handleMenuAction(context, value, question),
+                  onSelected: (value) => _handleMenuAction(context, ref, value, question),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'edit',
@@ -512,25 +538,25 @@ class _QuestionCard extends StatelessWidget {
     }
   }
 
-  void _handleMenuAction(BuildContext context, String action, Question question) {
+  void _handleMenuAction(BuildContext context, WidgetRef ref, String action, Question question) {
     switch (action) {
       case 'edit':
         showDialog(
           context: context,
           builder: (context) => AddQuestionDialog(
             subjectId: question.subjectId,
-            sectionType: question.sectionType!,
+            sectionType: question.sectionType,
             question: question,
           ),
         );
         break;
       case 'delete':
-        _showDeleteConfirmation(context, question);
+        _showDeleteConfirmation(context, ref, question);
         break;
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, Question question) {
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Question question) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -544,14 +570,35 @@ class _QuestionCard extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Question deleted successfully'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
+              
+              try {
+                final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
+                  subjectId: question.subjectId,
+                  sectionType: question.sectionType,
+                )).notifier);
+                
+                await questionsNotifier.deleteQuestion(question.id);
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Question deleted successfully'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error deleting question: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
@@ -606,6 +653,10 @@ class _NoSubjectSelected extends StatelessWidget {
 }
 
 class _EmptyQuestionsState extends StatelessWidget {
+  final String subjectName;
+
+  const _EmptyQuestionsState({required this.subjectName});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -634,7 +685,7 @@ class _EmptyQuestionsState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add your first question for this subject',
+            'Add your first question for $subjectName',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.gray600,
             ),

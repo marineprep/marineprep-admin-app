@@ -8,47 +8,47 @@ part of 'question.dart';
 
 Question _$QuestionFromJson(Map<String, dynamic> json) => Question(
   id: json['id'] as String,
-  questionText: json['questionText'] as String,
-  questionImageUrl: json['questionImageUrl'] as String?,
-  subjectId: json['subjectId'] as String,
-  sectionType: json['sectionType'] as String?,
-  answerChoices: (json['answerChoices'] as List<dynamic>)
+  questionText: json['question_text'] as String,
+  questionImageUrl: json['question_image_url'] as String?,
+  subjectId: json['subject_id'] as String,
+  sectionType: json['section_type'] as String,
+  answerChoices: (json['answer_choices'] as List<dynamic>)
       .map((e) => AnswerChoice.fromJson(e as Map<String, dynamic>))
       .toList(),
-  correctAnswer: json['correctAnswer'] as String,
-  explanationText: json['explanationText'] as String,
-  explanationImageUrl: json['explanationImageUrl'] as String?,
-  difficultyLevel: (json['difficultyLevel'] as num).toInt(),
-  isActive: json['isActive'] as bool,
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  updatedAt: DateTime.parse(json['updatedAt'] as String),
+  correctAnswer: json['correct_answer'] as String,
+  explanationText: json['explanation_text'] as String,
+  explanationImageUrl: json['explanation_image_url'] as String?,
+  difficultyLevel: (json['difficulty_level'] as num).toInt(),
+  isActive: json['is_active'] as bool,
+  createdAt: DateTime.parse(json['created_at'] as String),
+  updatedAt: DateTime.parse(json['updated_at'] as String),
 );
 
 Map<String, dynamic> _$QuestionToJson(Question instance) => <String, dynamic>{
   'id': instance.id,
-  'questionText': instance.questionText,
-  'questionImageUrl': instance.questionImageUrl,
-  'subjectId': instance.subjectId,
-  'sectionType': instance.sectionType,
-  'answerChoices': instance.answerChoices,
-  'correctAnswer': instance.correctAnswer,
-  'explanationText': instance.explanationText,
-  'explanationImageUrl': instance.explanationImageUrl,
-  'difficultyLevel': instance.difficultyLevel,
-  'isActive': instance.isActive,
-  'createdAt': instance.createdAt.toIso8601String(),
-  'updatedAt': instance.updatedAt.toIso8601String(),
+  'question_text': instance.questionText,
+  'question_image_url': instance.questionImageUrl,
+  'subject_id': instance.subjectId,
+  'section_type': instance.sectionType,
+  'answer_choices': instance.answerChoices,
+  'correct_answer': instance.correctAnswer,
+  'explanation_text': instance.explanationText,
+  'explanation_image_url': instance.explanationImageUrl,
+  'difficulty_level': instance.difficultyLevel,
+  'is_active': instance.isActive,
+  'created_at': instance.createdAt.toIso8601String(),
+  'updated_at': instance.updatedAt.toIso8601String(),
 };
 
 AnswerChoice _$AnswerChoiceFromJson(Map<String, dynamic> json) => AnswerChoice(
   label: json['label'] as String,
   text: json['text'] as String,
-  imageUrl: json['imageUrl'] as String?,
+  imageUrl: json['image_url'] as String?,
 );
 
 Map<String, dynamic> _$AnswerChoiceToJson(AnswerChoice instance) =>
     <String, dynamic>{
       'label': instance.label,
       'text': instance.text,
-      'imageUrl': instance.imageUrl,
+      'image_url': instance.imageUrl,
     };

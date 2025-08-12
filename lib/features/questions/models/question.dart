@@ -5,17 +5,29 @@ part 'question.g.dart';
 @JsonSerializable()
 class Question {
   final String id;
+  @JsonKey(name: 'question_text')
   final String questionText;
+  @JsonKey(name: 'question_image_url')
   final String? questionImageUrl;
+  @JsonKey(name: 'subject_id')
   final String subjectId;
-  final String? sectionType; // 'question_bank' or 'practice_test'
+  @JsonKey(name: 'section_type')
+  final String sectionType; // 'question_bank' or 'practice_test'
+  @JsonKey(name: 'answer_choices')
   final List<AnswerChoice> answerChoices;
+  @JsonKey(name: 'correct_answer')
   final String correctAnswer; // 'A', 'B', 'C', 'D'
+  @JsonKey(name: 'explanation_text')
   final String explanationText;
+  @JsonKey(name: 'explanation_image_url')
   final String? explanationImageUrl;
+  @JsonKey(name: 'difficulty_level')
   final int difficultyLevel; // 1-5
+  @JsonKey(name: 'is_active')
   final bool isActive;
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
+  @JsonKey(name: 'updated_at')
   final DateTime updatedAt;
 
   const Question({
@@ -23,7 +35,7 @@ class Question {
     required this.questionText,
     this.questionImageUrl,
     required this.subjectId,
-    this.sectionType,
+    required this.sectionType,
     required this.answerChoices,
     required this.correctAnswer,
     required this.explanationText,
@@ -76,6 +88,7 @@ class Question {
 class AnswerChoice {
   final String label; // 'A', 'B', 'C', 'D'
   final String text;
+  @JsonKey(name: 'image_url')
   final String? imageUrl;
 
   const AnswerChoice({

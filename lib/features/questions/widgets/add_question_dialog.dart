@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/question.dart';
+import '../providers/questions_provider.dart';
 
-class AddQuestionDialog extends StatefulWidget {
+class AddQuestionDialog extends ConsumerStatefulWidget {
   final String subjectId;
   final String sectionType; // 'question_bank' or 'practice_test'
   final Question? question;
@@ -19,10 +21,10 @@ class AddQuestionDialog extends StatefulWidget {
   });
 
   @override
-  State<AddQuestionDialog> createState() => _AddQuestionDialogState();
+  ConsumerState<AddQuestionDialog> createState() => _AddQuestionDialogState();
 }
 
-class _AddQuestionDialogState extends State<AddQuestionDialog> {
+class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
   
@@ -50,9 +52,15 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
 
   void _initializeEditData() {
     final question = widget.question!;
+    
+    // Initialize answer choices
     for (int i = 0; i < question.answerChoices.length && i < 4; i++) {
       _choiceControllers[i].text = question.answerChoices[i].text;
     }
+    
+    // Note: Form field initial values are already set in the FormBuilder widgets
+    // using initialValue: widget.question?.field
+    // No need to set them here manually as FormBuilder handles this
   }
 
   @override
@@ -322,10 +330,82 @@ class _AddQuestionDialogState extends State<AddQuestionDialog> {
     try {
       final formData = _formKey.currentState!.value;
 
-      // TODO: Upload images to Supabase Storage
-      // TODO: Save question to Supabase database
+      // Upload images to Supabase Storage if provided
+      String? questionImageUrl;
+      String? explanationImageUrl;
 
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      if (_questionImage != null) {
+        final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
+          subjectId: widget.subjectId,
+          sectionType: widget.sectionType,
+        )).notifier);
+        
+        questionImageUrl = await questionsNotifier.uploadImage(
+          _questionImage!.bytes!,
+          _questionImage!.name,
+          'images',
+        );
+      } else if (isEditing && widget.question!.questionImageUrl != null) {
+        questionImageUrl = widget.question!.questionImageUrl;
+      }
+
+      if (_explanationImage != null) {
+        final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
+          subjectId: widget.subjectId,
+          sectionType: widget.sectionType,
+        )).notifier);
+        
+        explanationImageUrl = await questionsNotifier.uploadImage(
+          _explanationImage!.bytes!,
+          _explanationImage!.name,
+          'images',
+        );
+      } else if (isEditing && widget.question!.explanationImageUrl != null) {
+        explanationImageUrl = widget.question!.explanationImageUrl;
+      }
+
+      // Create answer choices
+      final answerChoices = <AnswerChoice>[];
+      for (int i = 0; i < 4; i++) {
+        answerChoices.add(AnswerChoice(
+          label: String.fromCharCode(65 + i), // A, B, C, D
+          text: _choiceControllers[i].text.trim(),
+        ));
+      }
+
+      final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
+        subjectId: widget.subjectId,
+        sectionType: widget.sectionType,
+      )).notifier);
+
+      if (isEditing) {
+        // Update existing question
+        await questionsNotifier.updateQuestion(
+          id: widget.question!.id,
+          questionText: formData['questionText'],
+          questionImageUrl: questionImageUrl,
+          sectionType: widget.sectionType,
+          answerChoices: answerChoices,
+          correctAnswer: formData['correctAnswer'],
+          explanationText: formData['explanationText'],
+          explanationImageUrl: explanationImageUrl,
+          difficultyLevel: formData['difficultyLevel'],
+          isActive: formData['isActive'] ?? true,
+        );
+      } else {
+        // Create new question
+        await questionsNotifier.addQuestion(
+          questionText: formData['questionText'],
+          questionImageUrl: questionImageUrl,
+          sectionType: widget.sectionType,
+          answerChoices: answerChoices,
+          correctAnswer: formData['correctAnswer'],
+          explanationText: formData['explanationText'],
+          explanationImageUrl: explanationImageUrl,
+          difficultyLevel: formData['difficultyLevel'],
+          isActive: formData['isActive'] ?? true,
+        );
+      }
 
       if (mounted) {
         Navigator.of(context).pop();
