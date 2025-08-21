@@ -16,11 +16,7 @@ class AddTopicDialog extends ConsumerStatefulWidget {
   final String subjectId;
   final Topic? topic;
 
-  const AddTopicDialog({
-    super.key,
-    required this.subjectId,
-    this.topic,
-  });
+  const AddTopicDialog({super.key, required this.subjectId, this.topic});
 
   @override
   ConsumerState<AddTopicDialog> createState() => _AddTopicDialogState();
@@ -29,7 +25,7 @@ class AddTopicDialog extends ConsumerStatefulWidget {
 class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
-  
+
   // File uploads - supporting multiple videos
   List<PlatformFile> _selectedVideos = [];
   PlatformFile? _selectedNotes;
@@ -109,27 +105,6 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                   ]),
                 ),
                 const SizedBox(height: 16),
-
-                // Order index is now automatically managed
-                if (isEditing) ...[
-                  FormBuilderTextField(
-                    name: 'orderIndex',
-                    initialValue: widget.topic?.orderIndex.toString() ?? '1',
-                    decoration: const InputDecoration(
-                      labelText: 'Order Index',
-                      hintText: 'Display order (1, 2, 3...)',
-                      prefixIcon: Icon(Iconsax.sort),
-                      helperText: 'You can change the order, others will be reordered automatically',
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: FormBuilderValidators.compose([
-                      FormBuilderValidators.required(),
-                      FormBuilderValidators.integer(),
-                      FormBuilderValidators.min(1),
-                    ]),
-                  ),
-                  const SizedBox(height: 24),
-                ],
 
                 // Video Section
                 Text(
@@ -213,51 +188,56 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             ),
           ),
           const SizedBox(height: 8),
-          ...widget.topic!.videos.map((video) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.success.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Iconsax.video_play,
-                  color: AppColors.success,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          ...widget.topic!.videos
+              .map(
+                (video) => Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.success.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        video.fileName,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      Icon(
+                        Iconsax.video_play,
+                        color: AppColors.success,
+                        size: 20,
                       ),
-                      Text(
-                        _formatFileSize(video.fileSize),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.gray600,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              video.fileName,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              _formatFileSize(video.fileSize),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.gray600),
+                            ),
+                          ],
                         ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          // TODO: Handle existing video removal
+                        },
+                        child: const Text('Remove'),
                       ),
                     ],
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    // TODO: Handle existing video removal
-                  },
-                  child: const Text('Remove'),
-                ),
-              ],
-            ),
-          )).toList(),
+              )
+              .toList(),
           const SizedBox(height: 16),
         ],
-        
+
         // Selected new videos
         if (_selectedVideos.isNotEmpty) ...[
           Text(
@@ -281,11 +261,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Iconsax.video,
-                    color: AppColors.warning,
-                    size: 20,
-                  ),
+                  Icon(Iconsax.video, color: AppColors.warning, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -297,9 +273,8 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                         ),
                         Text(
                           _formatFileSize(video.size),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.gray600,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.gray600),
                         ),
                       ],
                     ),
@@ -328,23 +303,31 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
 
         // Upload button
         OutlinedButton.icon(
-          onPressed: (_isUploadingVideos || _selectedVideos.length >= 10) ? null : _pickVideos,
-          icon: Icon(_isUploadingVideos ? Iconsax.video_play : Iconsax.video_add),
-          label: Text(_selectedVideos.isEmpty ? 'Upload Videos (Max 10)' : 'Add More Videos'),
+          onPressed: (_isUploadingVideos || _selectedVideos.length >= 10)
+              ? null
+              : _pickVideos,
+          icon: Icon(
+            _isUploadingVideos ? Iconsax.video_play : Iconsax.video_add,
+          ),
+          label: Text(
+            _selectedVideos.isEmpty
+                ? 'Upload Videos (Max 10)'
+                : 'Add More Videos',
+          ),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: BorderSide(color: AppColors.primary),
           ),
         ),
-        
+
         if (_selectedVideos.length >= 10)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Maximum 10 videos allowed',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.warning,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.warning),
             ),
           ),
       ],
@@ -365,11 +348,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Iconsax.document_text,
-                  color: AppColors.success,
-                  size: 20,
-                ),
+                Icon(Iconsax.document_text, color: AppColors.success, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -411,11 +390,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             ),
             child: Row(
               children: [
-                Icon(
-                  Iconsax.document,
-                  color: AppColors.warning,
-                  size: 20,
-                ),
+                Icon(Iconsax.document, color: AppColors.warning, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -464,7 +439,9 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
 
         OutlinedButton.icon(
           onPressed: _isUploadingNotes ? null : _pickNotes,
-          icon: Icon(_isUploadingNotes ? Iconsax.document : Iconsax.document_upload),
+          icon: Icon(
+            _isUploadingNotes ? Iconsax.document : Iconsax.document_upload,
+          ),
           label: Text(_selectedNotes != null ? 'Change Notes' : 'Upload Notes'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
@@ -491,7 +468,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
           // Filter to ensure we don't exceed 10 videos total
           final remainingSlots = 10 - _selectedVideos.length;
           final newVideos = result.files.take(remainingSlots).toList();
-          
+
           // Check file sizes
           final validVideos = <PlatformFile>[];
           for (final video in newVideos) {
@@ -500,13 +477,15 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${video.name} is too large. Maximum size is ${AppConstants.maxFileSize ~/ (1024 * 1024)}MB'),
+                  content: Text(
+                    '${video.name} is too large. Maximum size is ${AppConstants.maxFileSize ~/ (1024 * 1024)}MB',
+                  ),
                   backgroundColor: AppColors.warning,
                 ),
               );
             }
           }
-          
+
           _selectedVideos.addAll(validVideos);
         });
       }
@@ -578,17 +557,17 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       // Debug: Check authentication status
       final authState = ref.read(authNotifierProvider);
       log('Auth state: $authState');
-      
+
       // Safely get current user from auth state
       final currentUser = authState.when(
         data: (user) => user,
         loading: () => null,
         error: (error, stack) => null,
       );
-      
+
       log('Current user: ${currentUser?.email}');
       log('Is authenticated: ${currentUser != null}');
-      
+
       // Check if user is authenticated
       if (currentUser == null) {
         throw Exception('User must be authenticated to upload files');
@@ -607,12 +586,12 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
 
       final formData = _formKey.currentState!.value;
       log('Form data: $formData');
-      
+
       // Safely extract form values with validation
       final name = formData['name'] as String?;
       final description = formData['description'] as String?;
       final isActive = formData['isActive'] as bool?;
-      
+
       // Validate required fields
       if (name == null || name.trim().isEmpty) {
         throw Exception('Topic name is required');
@@ -620,33 +599,26 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       if (description == null || description.trim().isEmpty) {
         throw Exception('Topic description is required');
       }
-      
+
       final finalIsActive = isActive ?? true;
-      
-      // For editing, get order index if available, otherwise use current
+
+      // For editing, keep the current order index
       int orderIndex;
       if (isEditing) {
-        final orderIndexStr = formData['orderIndex'] as String?;
-        if (orderIndexStr != null && orderIndexStr.trim().isNotEmpty) {
-          final parsedOrderIndex = int.tryParse(orderIndexStr);
-          if (parsedOrderIndex == null || parsedOrderIndex < 1) {
-            throw Exception('Order index must be a positive number');
-          }
-          orderIndex = parsedOrderIndex;
-        } else {
-          orderIndex = widget.topic!.orderIndex;
-        }
+        orderIndex = widget.topic!.orderIndex; // Keep current order index
       } else {
         // For new topics, order index will be auto-assigned
         orderIndex = 1; // This will be overridden by the service
       }
-      
-      log('Extracted form data - Name: $name, Description: $description, Order: $orderIndex, Active: $finalIsActive');
+
+      log(
+        'Extracted form data - Name: $name, Description: $description, Order: $orderIndex, Active: $finalIsActive',
+      );
 
       // Prepare videos data
       List<VideoFile> videosData = [];
       log('Preparing videos data. Editing mode: $isEditing');
-      
+
       // Keep existing videos if editing
       if (isEditing) {
         videosData = List<VideoFile>.from(widget.topic!.videos);
@@ -656,22 +628,26 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       // Upload new video files and add to videos data
       final topicsService = ref.read(topicsServiceProvider);
       log('Starting video uploads for ${_selectedVideos.length} videos');
-      
+
       for (final videoFile in _selectedVideos) {
         if (videoFile.bytes != null) {
-          log('Uploading video: ${videoFile.name}, size: ${videoFile.size} bytes');
+          log(
+            'Uploading video: ${videoFile.name}, size: ${videoFile.size} bytes',
+          );
           try {
             final videoUrl = await topicsService.uploadFile(
               path: videoFile.name,
               bucket: AppConstants.videosBucket,
               fileBytes: videoFile.bytes!,
             );
-            
-            videosData.add(VideoFile(
-              url: videoUrl,
-              fileName: videoFile.name,
-              fileSize: videoFile.size,
-            ));
+
+            videosData.add(
+              VideoFile(
+                url: videoUrl,
+                fileName: videoFile.name,
+                fileSize: videoFile.size,
+              ),
+            );
             log('Video uploaded successfully: $videoUrl');
           } catch (e) {
             log('Failed to upload video ${videoFile.name}: $e');
@@ -685,9 +661,11 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       // Upload notes file if selected
       String? notesUrl;
       String? notesFileName;
-      
+
       if (_selectedNotes != null && _selectedNotes!.bytes != null) {
-        log('Uploading notes: ${_selectedNotes!.name}, size: ${_selectedNotes!.size} bytes');
+        log(
+          'Uploading notes: ${_selectedNotes!.name}, size: ${_selectedNotes!.size} bytes',
+        );
         try {
           notesUrl = await topicsService.uploadFile(
             bucket: AppConstants.notesBucket,
@@ -713,27 +691,32 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       }
 
       // Save topic to database
-      log('About to save topic. Videos count: ${videosData.length}, Notes URL: $notesUrl');
-      
+      log(
+        'About to save topic. Videos count: ${videosData.length}, Notes URL: $notesUrl',
+      );
+
       // Validate videos data
       for (int i = 0; i < videosData.length; i++) {
         final video = videosData[i];
-        log('Video $i: URL=${video.url}, FileName=${video.fileName}, FileSize=${video.fileSize}');
+        log(
+          'Video $i: URL=${video.url}, FileName=${video.fileName}, FileSize=${video.fileSize}',
+        );
         if (video.url.isEmpty || video.fileName.isEmpty) {
           throw Exception('Invalid video data at index $i');
         }
       }
-      
+
       // Additional validation for null safety
       if (name.isEmpty || description.isEmpty) {
         throw Exception('Name and description cannot be empty');
       }
-      
+
       log('Final validation passed. Proceeding to save topic...');
-      
+
       if (isEditing) {
         log('Updating existing topic with ID: ${widget.topic!.id}');
-        await ref.read(topicsProvider(widget.subjectId).notifier)
+        await ref
+            .read(topicsProvider(widget.subjectId).notifier)
             .updateTopic(
               id: widget.topic!.id,
               name: name,
@@ -746,7 +729,8 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             );
       } else {
         log('Creating new topic');
-        await ref.read(topicsProvider(widget.subjectId).notifier)
+        await ref
+            .read(topicsProvider(widget.subjectId).notifier)
             .addTopic(
               name: name,
               description: description,

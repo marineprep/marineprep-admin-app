@@ -11,36 +11,43 @@ final questionsServiceProvider = Provider<QuestionsService>((ref) {
 });
 
 // Questions list provider for a specific subject and section type
-final questionsProvider = StateNotifierProvider.family<QuestionsNotifier, AsyncValue<List<Question>>, QuestionsFilter>(
-  (ref, filter) {
-    return QuestionsNotifier(
-      ref.read(questionsServiceProvider),
-      filter,
-    );
-  },
-);
+final questionsProvider =
+    StateNotifierProvider.family<
+      QuestionsNotifier,
+      AsyncValue<List<Question>>,
+      QuestionsFilter
+    >((ref, filter) {
+      return QuestionsNotifier(ref.read(questionsServiceProvider), filter, ref);
+    });
 
 // Individual question provider
-final questionProvider = FutureProvider.family<Question?, String>((ref, questionId) async {
+final questionProvider = FutureProvider.family<Question?, String>((
+  ref,
+  questionId,
+) async {
   final service = ref.read(questionsServiceProvider);
   return await service.getQuestionById(questionId);
 });
 
 // Questions statistics provider
-final questionsStatsProvider = FutureProvider.family<Map<String, int>, QuestionsFilter>((ref, filter) async {
-  final service = ref.read(questionsServiceProvider);
-  return await service.getQuestionsStats(filter.subjectId, sectionType: filter.sectionType);
-});
+final questionsStatsProvider =
+    FutureProvider.family<Map<String, int>, QuestionsFilter>((
+      ref,
+      filter,
+    ) async {
+      final service = ref.read(questionsServiceProvider);
+      return await service.getQuestionsStats(
+        filter.subjectId,
+        sectionType: filter.sectionType,
+      );
+    });
 
 // Filter class for questions
 class QuestionsFilter {
   final String subjectId;
   final String? sectionType;
 
-  const QuestionsFilter({
-    required this.subjectId,
-    this.sectionType,
-  });
+  const QuestionsFilter({required this.subjectId, this.sectionType});
 
   @override
   bool operator ==(Object other) =>
@@ -57,16 +64,23 @@ class QuestionsFilter {
 class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   final QuestionsService _service;
   final QuestionsFilter _filter;
+  final Ref _ref;
 
-  QuestionsNotifier(this._service, this._filter) : super(const AsyncValue.loading()) {
+  QuestionsNotifier(this._service, this._filter, this._ref)
+    : super(const AsyncValue.loading()) {
     loadQuestions();
   }
 
   Future<void> loadQuestions() async {
     try {
-      log('Loading questions for subject ID: ${_filter.subjectId}, section: ${_filter.sectionType}');
+      log(
+        'Loading questions for subject ID: ${_filter.subjectId}, section: ${_filter.sectionType}',
+      );
       state = const AsyncValue.loading();
-      final questions = await _service.getQuestions(_filter.subjectId, sectionType: _filter.sectionType);
+      final questions = await _service.getQuestions(
+        _filter.subjectId,
+        sectionType: _filter.sectionType,
+      );
       state = AsyncValue.data(questions);
       log('Successfully loaded ${questions.length} questions');
     } catch (error, stackTrace) {
@@ -88,7 +102,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   }) async {
     try {
       log('Adding question for subject ID: ${_filter.subjectId}');
-      
+
       await _service.createQuestion(
         questionText: questionText,
         questionImageUrl: questionImageUrl,
@@ -101,9 +115,13 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         difficultyLevel: difficultyLevel,
         isActive: isActive,
       );
-      
+
       // Reload questions list
       await loadQuestions();
+
+      // Invalidate stats provider to refresh statistics
+      _ref.invalidate(questionsStatsProvider(_filter));
+
       log('Successfully added question');
     } catch (error, stackTrace) {
       log('Error adding question: $error');
@@ -126,7 +144,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   }) async {
     try {
       log('Updating question with ID: $id');
-      
+
       await _service.updateQuestion(
         id: id,
         questionText: questionText,
@@ -140,9 +158,13 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         difficultyLevel: difficultyLevel,
         isActive: isActive,
       );
-      
+
       // Reload questions list
       await loadQuestions();
+
+      // Invalidate stats provider to refresh statistics
+      _ref.invalidate(questionsStatsProvider(_filter));
+
       log('Successfully updated question with ID: $id');
     } catch (error, stackTrace) {
       log('Error updating question: $error');
@@ -154,11 +176,15 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   Future<void> deleteQuestion(String id) async {
     try {
       log('Deleting question with ID: $id');
-      
+
       await _service.deleteQuestion(id);
-      
+
       // Reload questions list
       await loadQuestions();
+
+      // Invalidate stats provider to refresh statistics
+      _ref.invalidate(questionsStatsProvider(_filter));
+
       log('Successfully deleted question with ID: $id');
     } catch (error, stackTrace) {
       log('Error deleting question: $error');
@@ -173,7 +199,11 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   }
 
   // Upload image helper
-  Future<String?> uploadImage(List<int> fileBytes, String fileName, String bucket) async {
+  Future<String?> uploadImage(
+    List<int> fileBytes,
+    String fileName,
+    String bucket,
+  ) async {
     try {
       log('Uploading image: $fileName');
       final bytes = Uint8List.fromList(fileBytes);

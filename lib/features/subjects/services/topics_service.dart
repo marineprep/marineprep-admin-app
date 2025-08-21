@@ -312,7 +312,7 @@ class TopicsService {
 
       final maxOrderIndex = response.first['order_index'] as int;
       final nextOrderIndex = maxOrderIndex + 1;
-      log('Next order index: $nextOrderIndex (max: $maxOrderIndex)');
+      log('Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI');
       
       return nextOrderIndex;
     } catch (e) {
@@ -362,12 +362,6 @@ class TopicsService {
         throw Exception('Topic not found');
       }
 
-      final currentPosition = currentTopic.orderIndex;
-      if (currentPosition == newPosition) {
-        log('Topic is already at position $newPosition');
-        return;
-      }
-
       // Get all topics
       final topics = await getTopics(subjectId);
       
@@ -375,37 +369,50 @@ class TopicsService {
         throw Exception('Invalid position: $newPosition. Must be between 1 and ${topics.length}');
       }
 
-      // If moving to a higher position (e.g., from 2 to 5)
-      if (newPosition > currentPosition) {
-        // Shift topics between current and new position down by 1
+      // Since the UI displays topics in reverse order, we need to convert the position
+      // Position 1 in UI = highest order index in database
+      // Position N in UI = lowest order index in database
+      final targetOrderIndex = topics.length - newPosition + 1;
+      final currentPosition = currentTopic.orderIndex;
+      
+      if (currentPosition == targetOrderIndex) {
+        log('Topic is already at position $newPosition (order index $targetOrderIndex)');
+        return;
+      }
+
+      log('Converting UI position $newPosition to database order index $targetOrderIndex');
+
+      // If moving to a higher UI position (lower order index in database)
+      if (targetOrderIndex < currentPosition) {
+        // Shift topics between target and current position up by 1
         for (final topic in topics) {
-          if (topic.orderIndex > currentPosition && topic.orderIndex <= newPosition) {
-            await _supabase
-                .from('topics')
-                .update({'order_index': topic.orderIndex - 1})
-                .eq('id', topic.id);
-          }
-        }
-      } else {
-        // If moving to a lower position (e.g., from 5 to 2)
-        // Shift topics between new and current position up by 1
-        for (final topic in topics) {
-          if (topic.orderIndex >= newPosition && topic.orderIndex < currentPosition) {
+          if (topic.orderIndex >= targetOrderIndex && topic.orderIndex < currentPosition) {
             await _supabase
                 .from('topics')
                 .update({'order_index': topic.orderIndex + 1})
                 .eq('id', topic.id);
           }
         }
+      } else {
+        // If moving to a lower UI position (higher order index in database)
+        // Shift topics between current and target position down by 1
+        for (final topic in topics) {
+          if (topic.orderIndex > currentPosition && topic.orderIndex <= targetOrderIndex) {
+            await _supabase
+                .from('topics')
+                .update({'order_index': topic.orderIndex - 1})
+                .eq('id', topic.id);
+          }
+        }
       }
 
-      // Update the moved topic to the new position
+      // Update the moved topic to the target order index
       await _supabase
           .from('topics')
-          .update({'order_index': newPosition})
+          .update({'order_index': targetOrderIndex})
           .eq('id', topicId);
 
-      log('Successfully moved topic to position $newPosition');
+      log('Successfully moved topic to UI position $newPosition (database order index $targetOrderIndex)');
     } catch (e) {
       log('Error moving topic to position: $e');
       throw Exception('Failed to move topic: $e');

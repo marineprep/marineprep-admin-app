@@ -10,29 +10,32 @@ import '../models/topic.dart';
 import '../providers/subjects_provider.dart';
 import '../providers/topics_provider.dart';
 
-class SubjectDetailPage extends ConsumerWidget {
+class SubjectDetailPage extends ConsumerStatefulWidget {
   final String subjectId;
 
   const SubjectDetailPage({super.key, required this.subjectId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final subjectAsync = ref.watch(subjectProvider(subjectId));
-    final topicsAsync = ref.watch(topicsProvider(subjectId));
-    
+  ConsumerState<SubjectDetailPage> createState() => _SubjectDetailPageState();
+}
+
+class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage> {
+  bool showInactiveItems = true; // Admin always shows all by default
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectAsync = ref.watch(subjectProvider(widget.subjectId));
+    final topicsAsync = ref.watch(topicsProvider(widget.subjectId));
+
     return AppLayout(
-      currentRoute: '/subjects/$subjectId',
+      currentRoute: '/subjects/${widget.subjectId}',
       body: subjectAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Iconsax.warning_2,
-                size: 64,
-                color: AppColors.error,
-              ),
+              Icon(Iconsax.warning_2, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
               Text(
                 'Error loading subject',
@@ -40,7 +43,7 @@ class SubjectDetailPage extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.refresh(subjectProvider(subjectId)),
+                onPressed: () => ref.refresh(subjectProvider(widget.subjectId)),
                 child: const Text('Retry'),
               ),
             ],
@@ -48,9 +51,7 @@ class SubjectDetailPage extends ConsumerWidget {
         ),
         data: (subject) {
           if (subject == null) {
-            return const Center(
-              child: Text('Subject not found'),
-            );
+            return const Center(child: Text('Subject not found'));
           }
 
           return Padding(
@@ -73,18 +74,17 @@ class SubjectDetailPage extends ConsumerWidget {
                           const SizedBox(width: 8),
                           Text(
                             'Subjects',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.gray600,
-                            ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.gray600),
                           ),
                         ],
                       ),
                     ),
                     Text(
                       ' / ',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.gray400,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: AppColors.gray400),
                     ),
                     Text(
                       subject.name,
@@ -106,16 +106,14 @@ class SubjectDetailPage extends ConsumerWidget {
                         children: [
                           Text(
                             subject.name,
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.headlineLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             subject.description,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.gray600,
-                            ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.gray600),
                           ),
                         ],
                       ),
@@ -138,9 +136,8 @@ class SubjectDetailPage extends ConsumerWidget {
                   children: [
                     Text(
                       'Topics',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 8),
                     topicsAsync.when(
@@ -150,31 +147,39 @@ class SubjectDetailPage extends ConsumerWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                       error: (_, _) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.error.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           'Error',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.error,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ),
                       data: (topics) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           '${topics.length}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ),
                     ),
@@ -182,44 +187,75 @@ class SubjectDetailPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Filter Info
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.2),
-                      width: 1,
+                // Filter Toggle
+                Row(
+                  children: [
+                    Text(
+                      'Show Inactive Items:',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Iconsax.info_circle,
-                        size: 20,
-                        color: AppColors.primary,
+                    const SizedBox(width: 12),
+                    Switch(
+                      value: showInactiveItems,
+                      onChanged: (value) {
+                        setState(() {
+                          showInactiveItems = value;
+                        });
+                      },
+                      activeColor: AppColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      showInactiveItems
+                          ? 'All items visible (Admin view)'
+                          : 'Only active items visible',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.gray600,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'All topics are visible in the admin panel. The Active/Inactive status controls whether topics appear in the user app.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.gray700,
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.primary, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Iconsax.info_circle,
+                            size: 16,
+                            color: AppColors.primary,
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Active/Inactive status controls user app visibility',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
                 // Topics List
                 Expanded(
-                  child: _TopicsList(subjectId: subjectId),
+                  child: _TopicsList(
+                    subjectId: widget.subjectId,
+                    showInactiveItems: showInactiveItems,
+                  ),
                 ),
               ],
             ),
@@ -232,17 +268,19 @@ class SubjectDetailPage extends ConsumerWidget {
   void _showAddTopicDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AddTopicDialog(subjectId: subjectId),
+      builder: (context) => AddTopicDialog(subjectId: widget.subjectId),
     );
   }
 }
 
 class _TopicsList extends ConsumerWidget {
   final String subjectId;
-  
-  const _TopicsList({required this.subjectId});
+  final bool showInactiveItems;
+
+  const _TopicsList({required this.subjectId, required this.showInactiveItems});
 
   void _onTopicReorder(
+    BuildContext context,
     WidgetRef ref,
     List<Topic> topics,
     int oldIndex,
@@ -250,25 +288,55 @@ class _TopicsList extends ConsumerWidget {
     String subjectId,
   ) {
     try {
-      // Convert reversed index to actual index
-      final actualOldIndex = topics.length - 1 - oldIndex;
-      final actualNewIndex = topics.length - 1 - newIndex;
-      
-      if (actualOldIndex < 0 || actualNewIndex < 0 || 
-          actualOldIndex >= topics.length || actualNewIndex >= topics.length) {
+      // Since the UI displays topics in reverse order, we need to convert indices
+      // UI index 0 = last topic in database (highest order index)
+      // UI index N = first topic in database (lowest order index)
+      final reversedTopics = topics.reversed.toList();
+
+      if (oldIndex < 0 ||
+          newIndex < 0 ||
+          oldIndex >= reversedTopics.length ||
+          newIndex >= reversedTopics.length) {
         return;
       }
 
-      final topic = topics[actualOldIndex];
-      final newPosition = actualNewIndex + 1; // Convert to 1-based position
-      
-      log('Reordering topic ${topic.name} from position ${topic.orderIndex} to $newPosition');
-      
+      final topic = reversedTopics[oldIndex];
+
+      // Convert UI position to database position
+      // UI position 0 = database position N (highest)
+      // UI position N = database position 1 (lowest)
+      final newPosition = reversedTopics.length - newIndex;
+
+      log(
+        'Reordering topic ${topic.name} from UI position $oldIndex to UI position $newIndex (database position $newPosition)',
+      );
+
       // Move the topic to the new position
-      ref.read(topicsProvider(subjectId).notifier)
+      ref
+          .read(topicsProvider(subjectId).notifier)
           .moveTopicToPosition(topic.id, newPosition);
+
+      // Show success toast with correct position
+      // The newIndex is already the correct UI position (0-based), so add 1 for display
+      final displayPosition = newIndex + 1;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${topic.name} moved to position $displayPosition'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       log('Error reordering topic: $e');
+
+      // Show error toast
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reorder topic: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -282,11 +350,7 @@ class _TopicsList extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Iconsax.warning_2,
-              size: 64,
-              color: AppColors.error,
-            ),
+            Icon(Iconsax.warning_2, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
               'Error loading topics',
@@ -301,18 +365,33 @@ class _TopicsList extends ConsumerWidget {
         ),
       ),
       data: (topics) {
-        if (topics.isEmpty) {
+        // Filter topics based on the toggle
+        final filteredTopics = showInactiveItems
+            ? topics
+            : topics.where((topic) => topic.isActive).toList();
+
+        if (filteredTopics.isEmpty) {
           return _EmptyTopicsState();
         }
 
-        return ListView.separated(
-          itemCount: topics.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 12),
+        return ReorderableListView.builder(
+          itemCount: filteredTopics.length,
+          onReorder: (oldIndex, newIndex) {
+            _onTopicReorder(
+              context,
+              ref,
+              filteredTopics,
+              oldIndex,
+              newIndex,
+              subjectId,
+            );
+          },
           itemBuilder: (context, index) {
-            final topic = topics.reversed.toList()[index];
-            return _TopicCard(
-              topic: topic, 
-              subjectId: subjectId,
+            final topic = filteredTopics.reversed.toList()[index];
+            return Padding(
+              key: ValueKey(topic.id),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TopicCard(topic: topic, subjectId: subjectId),
             );
           },
         );
@@ -359,7 +438,7 @@ class _TopicCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                
+
                 // Topic info
                 Expanded(
                   child: Column(
@@ -386,36 +465,39 @@ class _TopicCard extends ConsumerWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: topic.isActive 
+                          color: topic.isActive
                               ? AppColors.success.withOpacity(0.1)
                               : AppColors.warning.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: topic.isActive 
+                            color: topic.isActive
                                 ? AppColors.success
                                 : AppColors.warning,
-                                width: 1,
+                            width: 1,
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              topic.isActive ? Iconsax.tick_circle : Iconsax.close_circle,
+                              topic.isActive
+                                  ? Iconsax.tick_circle
+                                  : Iconsax.close_circle,
                               size: 12,
-                              color: topic.isActive 
+                              color: topic.isActive
                                   ? AppColors.success
                                   : AppColors.warning,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               topic.isActive ? 'Active' : 'Inactive',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: topic.isActive 
-                                    ? AppColors.success
-                                    : AppColors.warning,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: topic.isActive
+                                        ? AppColors.success
+                                        : AppColors.warning,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                           ],
                         ),
@@ -426,7 +508,8 @@ class _TopicCard extends ConsumerWidget {
 
                 // Action buttons
                 PopupMenuButton<String>(
-                  onSelected: (value) => _handleMenuAction(context, ref, value, topic),
+                  onSelected: (value) =>
+                      _handleMenuAction(context, ref, value, topic),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'edit',
@@ -444,15 +527,15 @@ class _TopicCard extends ConsumerWidget {
                         children: [
                           Icon(Iconsax.trash, color: AppColors.error),
                           SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: AppColors.error)),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: AppColors.error),
+                          ),
                         ],
                       ),
                     ),
                   ],
-                  child: const Icon(
-                    Iconsax.more,
-                    color: AppColors.gray400,
-                  ),
+                  child: const Icon(Iconsax.more, color: AppColors.gray400),
                 ),
               ],
             ),
@@ -463,7 +546,10 @@ class _TopicCard extends ConsumerWidget {
               children: [
                 if (hasVideos) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.success.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
@@ -479,10 +565,11 @@ class _TopicCard extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${topic.videos.length} Video${topic.videos.length != 1 ? 's' : ''}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.success,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
@@ -491,7 +578,10 @@ class _TopicCard extends ConsumerWidget {
                 ],
                 if (hasNotes) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.warning.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
@@ -507,10 +597,11 @@ class _TopicCard extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           'Notes',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
@@ -518,7 +609,10 @@ class _TopicCard extends ConsumerWidget {
                 ],
                 if (!hasVideos && !hasNotes) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.gray200,
                       borderRadius: BorderRadius.circular(16),
@@ -540,15 +634,18 @@ class _TopicCard extends ConsumerWidget {
     );
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action, Topic topic) {
+  void _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+    Topic topic,
+  ) {
     switch (action) {
       case 'edit':
         showDialog(
           context: context,
-          builder: (context) => AddTopicDialog(
-            subjectId: topic.subjectId,
-            topic: topic,
-          ),
+          builder: (context) =>
+              AddTopicDialog(subjectId: topic.subjectId, topic: topic),
         );
         break;
       case 'delete':
@@ -557,7 +654,11 @@ class _TopicCard extends ConsumerWidget {
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Topic topic) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    Topic topic,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -572,29 +673,30 @@ class _TopicCard extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-               try {
-                 Navigator.of(context).pop();
-                 await ref.read(topicsProvider(subjectId).notifier)
-                     .deleteTopic(topic.id);
-                 
-                 if (context.mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(
-                       content: Text('${topic.name} deleted successfully'),
-                       backgroundColor: AppColors.success,
-                     ),
-                   );
-                 }
-               } catch (e) {
-                 if (context.mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(
-                       content: Text('Failed to delete topic: $e'),
-                       backgroundColor: AppColors.error,
-                     ),
-                   );
-                 }
-               }
+              try {
+                Navigator.of(context).pop();
+                await ref
+                    .read(topicsProvider(subjectId).notifier)
+                    .deleteTopic(topic.id);
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${topic.name} deleted successfully'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete topic: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
@@ -638,9 +740,9 @@ class _EmptyTopicsState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Add topics with videos and notes',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.gray600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.gray600),
           ),
         ],
       ),

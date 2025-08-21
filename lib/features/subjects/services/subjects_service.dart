@@ -3,7 +3,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/supabase_config.dart';
 import '../../shared/services/exam_categories_service.dart';
 import '../models/subject.dart';
-import '../models/topic.dart';
 
 class SubjectsService {
   final SupabaseClient _supabase = SupabaseConfig.client;
@@ -210,7 +209,7 @@ class SubjectsService {
 
       final maxOrderIndex = response.first['order_index'] as int;
       final nextOrderIndex = maxOrderIndex + 1;
-      log('Next order index: $nextOrderIndex (max: $maxOrderIndex)');
+      log('Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI');
       
       return nextOrderIndex;
     } catch (e) {
@@ -260,12 +259,6 @@ class SubjectsService {
         throw Exception('Subject not found');
       }
 
-      final currentPosition = currentSubject.orderIndex;
-      if (currentPosition == newPosition) {
-        log('Subject is already at position $newPosition');
-        return;
-      }
-
       // Get all subjects
       final subjects = await getSubjects(examCategoryId);
       
@@ -273,37 +266,50 @@ class SubjectsService {
         throw Exception('Invalid position: $newPosition. Must be between 1 and ${subjects.length}');
       }
 
-      // If moving to a higher position (e.g., from 2 to 5)
-      if (newPosition > currentPosition) {
-        // Shift subjects between current and new position down by 1
+      // Since the UI displays subjects in reverse order, we need to convert the position
+      // Position 1 in UI = highest order index in database
+      // Position N in UI = lowest order index in database
+      final targetOrderIndex = subjects.length - newPosition + 1;
+      final currentPosition = currentSubject.orderIndex;
+      
+      if (currentPosition == targetOrderIndex) {
+        log('Subject is already at position $newPosition (order index $targetOrderIndex)');
+        return;
+      }
+
+      log('Converting UI position $newPosition to database order index $targetOrderIndex');
+
+      // If moving to a higher UI position (lower order index in database)
+      if (targetOrderIndex < currentPosition) {
+        // Shift subjects between target and current position up by 1
         for (final subject in subjects) {
-          if (subject.orderIndex > currentPosition && subject.orderIndex <= newPosition) {
-            await _supabase
-                .from('subjects')
-                .update({'order_index': subject.orderIndex - 1})
-                .eq('id', subject.id);
-          }
-        }
-      } else {
-        // If moving to a lower position (e.g., from 5 to 2)
-        // Shift subjects between new and current position up by 1
-        for (final subject in subjects) {
-          if (subject.orderIndex >= newPosition && subject.orderIndex < currentPosition) {
+          if (subject.orderIndex >= targetOrderIndex && subject.orderIndex < currentPosition) {
             await _supabase
                 .from('subjects')
                 .update({'order_index': subject.orderIndex + 1})
                 .eq('id', subject.id);
           }
         }
+      } else {
+        // If moving to a lower UI position (higher order index in database)
+        // Shift subjects between current and target position down by 1
+        for (final subject in subjects) {
+          if (subject.orderIndex > currentPosition && subject.orderIndex <= targetOrderIndex) {
+            await _supabase
+                .from('subjects')
+                .update({'order_index': subject.orderIndex - 1})
+                .eq('id', subject.id);
+          }
+        }
       }
 
-      // Update the moved subject to the new position
+      // Update the moved subject to the target order index
       await _supabase
           .from('subjects')
-          .update({'order_index': newPosition})
+          .update({'order_index': targetOrderIndex})
           .eq('id', subjectId);
 
-      log('Successfully moved subject to position $newPosition');
+      log('Successfully moved subject to UI position $newPosition (database order index $targetOrderIndex)');
     } catch (e) {
       log('Error moving subject to position: $e');
       throw Exception('Failed to move subject: $e');

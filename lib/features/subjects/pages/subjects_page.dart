@@ -9,11 +9,18 @@ import '../widgets/add_subject_dialog.dart';
 import '../models/subject.dart';
 import '../providers/subjects_provider.dart';
 
-class SubjectsPage extends ConsumerWidget {
+class SubjectsPage extends ConsumerStatefulWidget {
   const SubjectsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubjectsPage> createState() => _SubjectsPageState();
+}
+
+class _SubjectsPageState extends ConsumerState<SubjectsPage> {
+  bool showInactiveItems = true; // Admin always shows all by default
+
+  @override
+  Widget build(BuildContext context) {
     // For now, using IMUCET as default exam category
     // In the future, you can make this dynamic based on user selection
     const examCategoryId = 'IMUCET';
@@ -71,16 +78,22 @@ class SubjectsPage extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 Switch(
-                  value: true, // Always show all items in admin
-                  onChanged: null, // Disabled - admin always sees all
+                  value: showInactiveItems,
+                  onChanged: (value) {
+                    setState(() {
+                      showInactiveItems = value;
+                    });
+                  },
                   activeColor: AppColors.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'All items visible (Admin view)',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.gray600,
-                  ),
+                  showInactiveItems
+                      ? 'All items visible (Admin view)'
+                      : 'Only active items visible',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.gray600),
                 ),
                 const Spacer(),
                 Container(
@@ -91,10 +104,7 @@ class SubjectsPage extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.primary,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.primary, width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -120,7 +130,12 @@ class SubjectsPage extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Subjects Grid
-            Expanded(child: _SubjectsGrid(examCategoryId: examCategoryId)),
+            Expanded(
+              child: _SubjectsGrid(
+                examCategoryId: examCategoryId,
+                showInactiveItems: showInactiveItems,
+              ),
+            ),
           ],
         ),
       ),
@@ -141,10 +156,15 @@ class SubjectsPage extends ConsumerWidget {
 
 class _SubjectsGrid extends ConsumerWidget {
   final String examCategoryId;
+  final bool showInactiveItems;
 
-  const _SubjectsGrid({required this.examCategoryId});
+  const _SubjectsGrid({
+    required this.examCategoryId,
+    required this.showInactiveItems,
+  });
 
   void _onSubjectReorder(
+    BuildContext context,
     WidgetRef ref,
     List<Map<String, dynamic>> subjects,
     int oldIndex,
@@ -152,25 +172,55 @@ class _SubjectsGrid extends ConsumerWidget {
     String examCategoryId,
   ) {
     try {
-      // Convert reversed index to actual index
-      final actualOldIndex = subjects.length - 1 - oldIndex;
-      final actualNewIndex = subjects.length - 1 - newIndex;
-      
-      if (actualOldIndex < 0 || actualNewIndex < 0 || 
-          actualOldIndex >= subjects.length || actualNewIndex >= subjects.length) {
+      // Since the UI displays subjects in reverse order, we need to convert indices
+      // UI index 0 = last subject in database (highest order index)
+      // UI index N = first subject in database (lowest order index)
+      final reversedSubjects = subjects.reversed.toList();
+
+      if (oldIndex < 0 ||
+          newIndex < 0 ||
+          oldIndex >= reversedSubjects.length ||
+          newIndex >= reversedSubjects.length) {
         return;
       }
 
-      final subject = subjects[actualOldIndex]['subject'] as Subject;
-      final newPosition = actualNewIndex + 1; // Convert to 1-based position
-      
-      log('Reordering subject ${subject.name} from position ${subject.orderIndex} to $newPosition');
-      
+      final subject = reversedSubjects[oldIndex]['subject'] as Subject;
+
+      // Convert UI position to database position
+      // UI position 0 = database position N (highest)
+      // UI position N = database position 1 (lowest)
+      final newPosition = reversedSubjects.length - newIndex;
+
+      log(
+        'Reordering subject ${subject.name} from UI position $oldIndex to UI position $newIndex (database position $newPosition)',
+      );
+
       // Move the subject to the new position
-      ref.read(subjectsProvider(examCategoryId).notifier)
+      ref
+          .read(subjectsProvider(examCategoryId).notifier)
           .moveSubjectToPosition(subject.id, newPosition);
+
+      // Show success toast with correct position
+      // The newIndex is already the correct UI position (0-based), so add 1 for display
+      final displayPosition = newIndex + 1;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${subject.name} moved to position $displayPosition'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       log('Error reordering subject: $e');
+
+      // Show error toast
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reorder subject: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -207,27 +257,43 @@ class _SubjectsGrid extends ConsumerWidget {
         ),
       ),
       data: (subjects) {
-        if (subjects.isEmpty) {
+        // Filter subjects based on the toggle
+        final filteredSubjects = showInactiveItems
+            ? subjects
+            : subjects.where((subjectData) {
+                final subject = subjectData['subject'] as Subject;
+                return subject.isActive;
+              }).toList();
+
+        if (filteredSubjects.isEmpty) {
           return _EmptyState();
         }
 
-        return GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
-          ),
-          itemCount: subjects.length,
+        return ReorderableListView.builder(
+          itemCount: filteredSubjects.length,
+          onReorder: (oldIndex, newIndex) {
+            _onSubjectReorder(
+              context,
+              ref,
+              filteredSubjects,
+              oldIndex,
+              newIndex,
+              examCategoryId,
+            );
+          },
           itemBuilder: (context, index) {
-            final subjectData = subjects.reversed.toList()[index];
+            final subjectData = filteredSubjects.reversed.toList()[index];
             final subject = subjectData['subject'] as Subject;
             final topicsCount = subjectData['topicsCount'] as int;
 
-            return _SubjectCard(
-              subject: subject,
-              topicsCount: topicsCount,
-              examCategoryId: examCategoryId,
+            return Padding(
+              key: ValueKey(subject.id),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _SubjectCard(
+                subject: subject,
+                topicsCount: topicsCount,
+                examCategoryId: examCategoryId,
+              ),
             );
           },
         );
@@ -253,9 +319,11 @@ class _SubjectCard extends ConsumerWidget {
       child: InkWell(
         onTap: () => context.go('/subjects/${subject.id}'),
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: Container(
+          height: 200, // Fixed height to avoid unbounded constraints
           padding: const EdgeInsets.all(20),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -275,12 +343,12 @@ class _SubjectCard extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: subject.isActive 
+                      color: subject.isActive
                           ? AppColors.success.withOpacity(0.1)
                           : AppColors.warning.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: subject.isActive 
+                        color: subject.isActive
                             ? AppColors.success
                             : AppColors.warning,
                         width: 1,
@@ -290,21 +358,24 @@ class _SubjectCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          subject.isActive ? Iconsax.tick_circle : Iconsax.close_circle,
+                          subject.isActive
+                              ? Iconsax.tick_circle
+                              : Iconsax.close_circle,
                           size: 12,
-                          color: subject.isActive 
+                          color: subject.isActive
                               ? AppColors.success
                               : AppColors.warning,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           subject.isActive ? 'Active' : 'Inactive',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: subject.isActive 
-                                ? AppColors.success
-                                : AppColors.warning,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: subject.isActive
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
@@ -344,15 +415,17 @@ class _SubjectCard extends ConsumerWidget {
               ),
 
               const SizedBox(height: 8),
-              Text(
-                subject.description,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.gray600),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              Expanded(
+                child: Text(
+                  subject.description,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.gray600),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Container(

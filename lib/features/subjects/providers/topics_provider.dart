@@ -10,17 +10,20 @@ final topicsServiceProvider = Provider<TopicsService>((ref) {
 });
 
 // Topics list provider
-final topicsProvider = StateNotifierProvider.family<TopicsNotifier, AsyncValue<List<Topic>>, String>(
-  (ref, subjectId) {
-    return TopicsNotifier(
-      ref.read(topicsServiceProvider),
-      subjectId,
-    );
-  },
-);
+final topicsProvider =
+    StateNotifierProvider.family<
+      TopicsNotifier,
+      AsyncValue<List<Topic>>,
+      String
+    >((ref, subjectId) {
+      return TopicsNotifier(ref.read(topicsServiceProvider), subjectId);
+    });
 
 // Individual topic provider
-final topicProvider = FutureProvider.family<Topic?, String>((ref, topicId) async {
+final topicProvider = FutureProvider.family<Topic?, String>((
+  ref,
+  topicId,
+) async {
   final service = ref.read(topicsServiceProvider);
   return await service.getTopicById(topicId);
 });
@@ -29,7 +32,8 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   final TopicsService _service;
   final String _subjectId;
 
-  TopicsNotifier(this._service, this._subjectId) : super(const AsyncValue.loading()) {
+  TopicsNotifier(this._service, this._subjectId)
+    : super(const AsyncValue.loading()) {
     log('Initializing TopicsNotifier for subject ID: $_subjectId');
     loadTopics();
   }
@@ -40,7 +44,9 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
       state = const AsyncValue.loading();
       final topics = await _service.getTopics(_subjectId);
       state = AsyncValue.data(topics);
-      log('Successfully loaded ${topics.length} topics for subject ID: $_subjectId');
+      log(
+        'Successfully loaded ${topics.length} topics for subject ID: $_subjectId',
+      );
     } catch (error, stackTrace) {
       log('Error loading topics for subject ID $_subjectId: $error');
       state = AsyncValue.error(error, stackTrace);
@@ -57,11 +63,11 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   }) async {
     try {
       log('Adding topic: $name for subject ID: $_subjectId');
-      
+
       // Get the next available order index automatically
       final orderIndex = await _service.getNextOrderIndex(_subjectId);
       log('Auto-assigned order index: $orderIndex');
-      
+
       await _service.createTopic(
         name: name,
         description: description,
@@ -72,7 +78,7 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
         notesFileName: notesFileName,
         isActive: isActive,
       );
-      
+
       // Reload topics list
       await loadTopics();
       log('Successfully added topic: $name');
@@ -95,7 +101,17 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   }) async {
     try {
       log('Updating topic: $name with ID: $id');
-      
+
+      // Get current topic to check if order index changed
+      final currentTopic = await _service.getTopicById(id);
+      if (currentTopic == null) {
+        throw Exception('Topic not found');
+      }
+
+      final currentOrderIndex = currentTopic.orderIndex;
+      final orderIndexChanged = currentOrderIndex != orderIndex;
+
+      // Update the topic with new data
       await _service.updateTopic(
         id: id,
         name: name,
@@ -106,12 +122,20 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
         notesFileName: notesFileName,
         isActive: isActive,
       );
-      
-      // Reorder topics to ensure sequential order
-      await _service.reorderTopics(_subjectId);
-      
-      // Reload topics list
-      await loadTopics();
+
+      // If order index changed, move the topic to the new position
+      if (orderIndexChanged) {
+        log(
+          'Order index changed from $currentOrderIndex to $orderIndex, moving topic to new position',
+        );
+        await moveTopicToPosition(id, orderIndex);
+      } else {
+        // Only reorder if order index didn't change (for other updates)
+        await _service.reorderTopics(_subjectId);
+        // Reload topics list
+        await loadTopics();
+      }
+
       log('Successfully updated topic: $name');
     } catch (error, stackTrace) {
       log('Error updating topic: $error');
@@ -123,12 +147,12 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
   Future<void> deleteTopic(String id) async {
     try {
       log('Deleting topic with ID: $id');
-      
+
       await _service.deleteTopic(id);
-      
+
       // Reorder topics to ensure sequential order after deletion
       await _service.reorderTopics(_subjectId);
-      
+
       // Reload topics list
       await loadTopics();
       log('Successfully deleted topic with ID: $id');
@@ -144,19 +168,18 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
     loadTopics();
   }
 
-  // Move topic to a specific position
+    // Move topic to a specific position
   Future<void> moveTopicToPosition(String topicId, int newPosition) async {
     try {
       log('Moving topic $topicId to position $newPosition');
       
       await _service.moveTopicToPosition(topicId, newPosition, _subjectId);
       
-      // Reload topics list
+      // Reload to update the UI with the new order
       await loadTopics();
       log('Successfully moved topic to position $newPosition');
-    } catch (error, stackTrace) {
+    } catch (error) {
       log('Error moving topic: $error');
-      state = AsyncValue.error(error, stackTrace);
       rethrow;
     }
   }
