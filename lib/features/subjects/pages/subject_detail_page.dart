@@ -216,35 +216,29 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage> {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primary, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Iconsax.info_circle,
-                            size: 16,
-                            color: AppColors.primary,
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () =>
+                              ref.refresh(topicsProvider(widget.subjectId)),
+                          icon: const Icon(Iconsax.refresh),
+                          tooltip: 'Refresh topics',
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.gray100,
+                            foregroundColor: AppColors.gray600,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Active/Inactive status controls user app visibility',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => _showAddTopicDialog(context, ref),
+                          icon: const Icon(Iconsax.add),
+                          label: const Text('Add Topic'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -278,67 +272,6 @@ class _TopicsList extends ConsumerWidget {
   final bool showInactiveItems;
 
   const _TopicsList({required this.subjectId, required this.showInactiveItems});
-
-  void _onTopicReorder(
-    BuildContext context,
-    WidgetRef ref,
-    List<Topic> topics,
-    int oldIndex,
-    int newIndex,
-    String subjectId,
-  ) {
-    try {
-      // Since the UI displays topics in reverse order, we need to convert indices
-      // UI index 0 = last topic in database (highest order index)
-      // UI index N = first topic in database (lowest order index)
-      final reversedTopics = topics.reversed.toList();
-
-      if (oldIndex < 0 ||
-          newIndex < 0 ||
-          oldIndex >= reversedTopics.length ||
-          newIndex >= reversedTopics.length) {
-        return;
-      }
-
-      final topic = reversedTopics[oldIndex];
-
-      // Convert UI position to database position
-      // UI position 0 = database position N (highest)
-      // UI position N = database position 1 (lowest)
-      final newPosition = reversedTopics.length - newIndex;
-
-      log(
-        'Reordering topic ${topic.name} from UI position $oldIndex to UI position $newIndex (database position $newPosition)',
-      );
-
-      // Move the topic to the new position
-      ref
-          .read(topicsProvider(subjectId).notifier)
-          .moveTopicToPosition(topic.id, newPosition);
-
-      // Show success toast with correct position
-      // The newIndex is already the correct UI position (0-based), so add 1 for display
-      final displayPosition = newIndex + 1;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${topic.name} moved to position $displayPosition'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      log('Error reordering topic: $e');
-
-      // Show error toast
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to reorder topic: $e'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -374,18 +307,8 @@ class _TopicsList extends ConsumerWidget {
           return _EmptyTopicsState();
         }
 
-        return ReorderableListView.builder(
+        return ListView.builder(
           itemCount: filteredTopics.length,
-          onReorder: (oldIndex, newIndex) {
-            _onTopicReorder(
-              context,
-              ref,
-              filteredTopics,
-              oldIndex,
-              newIndex,
-              subjectId,
-            );
-          },
           itemBuilder: (context, index) {
             final topic = filteredTopics.reversed.toList()[index];
             return Padding(

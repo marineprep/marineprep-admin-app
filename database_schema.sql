@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS questions (
     question_text TEXT NOT NULL,
     question_image_url TEXT,
     subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    topic_id UUID REFERENCES topics(id) ON DELETE SET NULL,
     section_type VARCHAR(50) NOT NULL CHECK (section_type IN ('question_bank', 'practice_test')),
     
     -- Answer choices stored as JSONB for flexibility

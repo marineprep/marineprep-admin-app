@@ -1,13 +1,18 @@
+import 'package:flutter/foundation.dart';
+import 'package:marine_prep_admin/core/constants/supabase_constants.dart';
+
 class AppConstants {
   // App Information
   static const String appName = 'Marine Prep Admin';
   static const String appVersion = '1.0.0';
 
   // API Constants
-  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-  );
+  static const String supabaseUrl = kDebugMode
+      ? supabaseUrlForDebug
+      : String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey = kDebugMode
+      ? supabaseAnonKeyForDebug
+      : String.fromEnvironment('SUPABASE_ANON_KEY');
 
   // Storage Buckets
   static const String videosBucket = 'videos';

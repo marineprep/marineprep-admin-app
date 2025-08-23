@@ -207,21 +207,24 @@ class SubjectsNotifier
     loadSubjects();
   }
 
-    // Move subject to a specific position
+  // Move subject to a specific position
   Future<void> moveSubjectToPosition(String subjectId, int newPosition) async {
     try {
       if (_examCategoryId == null) {
         throw Exception('Exam category ID not resolved');
       }
-      
+
       log('Moving subject $subjectId to position $newPosition');
-      
+
       await _service.moveSubjectToPosition(
         subjectId,
         newPosition,
         _examCategoryId!,
       );
-      
+
+      // Add a small delay to ensure database operations complete
+      await Future.delayed(const Duration(milliseconds: 100));
+
       // Reload to update the UI with the new order
       await loadSubjects();
       log('Successfully moved subject to position $newPosition');

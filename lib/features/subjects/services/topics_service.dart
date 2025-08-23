@@ -12,7 +12,7 @@ class TopicsService {
   Future<List<Topic>> getTopics(String subjectId) async {
     try {
       log('Getting topics for subject ID: $subjectId');
-      
+
       // First, test if we can access the topics table
       try {
         final testResponse = await _supabase
@@ -24,7 +24,7 @@ class TopicsService {
         log('Topics table access test failed: $e');
         throw Exception('Cannot access topics table: $e');
       }
-      
+
       final response = await _supabase
           .from('topics')
           .select()
@@ -34,9 +34,9 @@ class TopicsService {
       final topics = (response as List)
           .map((json) => Topic.fromJson(json))
           .toList();
-      
+
       log('Fetched ${topics.length} topics for subject ID: $subjectId');
-      
+
       return topics;
     } catch (e) {
       log('Error fetching topics for subject ID $subjectId: $e');
@@ -48,7 +48,7 @@ class TopicsService {
   Future<Topic?> getTopicById(String topicId) async {
     try {
       log('Getting topic by ID: $topicId');
-      
+
       final response = await _supabase
           .from('topics')
           .select()
@@ -57,7 +57,7 @@ class TopicsService {
 
       final topic = Topic.fromJson(response);
       log('Fetched topic: ${topic.name}');
-      
+
       return topic;
     } catch (e) {
       log('Error getting topic by ID $topicId: $e');
@@ -78,13 +78,14 @@ class TopicsService {
   }) async {
     try {
       log('Creating topic: $name for subject ID: $subjectId');
-      
+
       // Validate required fields
       if (name.isEmpty) throw Exception('Topic name cannot be empty');
-      if (description.isEmpty) throw Exception('Topic description cannot be empty');
+      if (description.isEmpty)
+        throw Exception('Topic description cannot be empty');
       if (subjectId.isEmpty) throw Exception('Subject ID cannot be empty');
       if (orderIndex < 0) throw Exception('Order index must be non-negative');
-      
+
       // Log the data being sent to the database
       final insertData = {
         'name': name,
@@ -96,13 +97,13 @@ class TopicsService {
         'notes_file_name': notesFileName,
         'is_active': isActive,
       };
-      
+
       log('Insert data: $insertData');
       log('Videos data type: ${videos.runtimeType}, count: ${videos.length}');
       if (videos.isNotEmpty) {
         log('First video data: ${videos.first}');
       }
-      
+
       final response = await _supabase
           .from('topics')
           .insert(insertData)
@@ -111,14 +112,16 @@ class TopicsService {
 
       final topic = Topic.fromJson(response);
       log('Created topic: ${topic.name} with ID: ${topic.id}');
-      
+
       return topic;
     } catch (e) {
       log('Error creating topic $name: $e');
-      
+
       // Provide more specific error messages for common issues
       if (e.toString().contains('null')) {
-        throw Exception('Database error: One or more required fields are null. Check the data being sent.');
+        throw Exception(
+          'Database error: One or more required fields are null. Check the data being sent.',
+        );
       } else if (e.toString().contains('violates')) {
         throw Exception('Database constraint violation: $e');
       } else {
@@ -140,13 +143,14 @@ class TopicsService {
   }) async {
     try {
       log('Updating topic: $name with ID: $id');
-      
+
       // Validate required fields
       if (id.isEmpty) throw Exception('Topic ID cannot be empty');
       if (name.isEmpty) throw Exception('Topic name cannot be empty');
-      if (description.isEmpty) throw Exception('Topic description cannot be empty');
+      if (description.isEmpty)
+        throw Exception('Topic description cannot be empty');
       if (orderIndex < 0) throw Exception('Order index must be non-negative');
-      
+
       // Log the data being sent to the database
       final updateData = {
         'name': name,
@@ -158,13 +162,13 @@ class TopicsService {
         'is_active': isActive,
         'updated_at': DateTime.now().toIso8601String(),
       };
-      
+
       log('Update data: $updateData');
       log('Videos data type: ${videos.runtimeType}, count: ${videos.length}');
       if (videos.isNotEmpty) {
         log('First video data: ${videos.first}');
       }
-      
+
       final response = await _supabase
           .from('topics')
           .update(updateData)
@@ -174,14 +178,16 @@ class TopicsService {
 
       final topic = Topic.fromJson(response);
       log('Updated topic: ${topic.name}');
-      
+
       return topic;
     } catch (e) {
       log('Error updating topic $name with ID $id: $e');
-      
+
       // Provide more specific error messages for common issues
       if (e.toString().contains('null')) {
-        throw Exception('Database error: One or more required fields are null. Check the data being sent.');
+        throw Exception(
+          'Database error: One or more required fields are null. Check the data being sent.',
+        );
       } else if (e.toString().contains('violates')) {
         throw Exception('Database constraint violation: $e');
       } else {
@@ -194,12 +200,9 @@ class TopicsService {
   Future<void> deleteTopic(String id) async {
     try {
       log('Deleting topic with ID: $id');
-      
-      await _supabase
-          .from('topics')
-          .delete()
-          .eq('id', id);
-      
+
+      await _supabase.from('topics').delete().eq('id', id);
+
       log('Deleted topic with ID: $id');
     } catch (e) {
       log('Error deleting topic with ID $id: $e');
@@ -221,53 +224,71 @@ class TopicsService {
         throw Exception('User must be authenticated to upload files');
       }
 
-      log('Uploading file to bucket: $bucket, path: $path, user: ${user.email}');
+      log(
+        'Uploading file to bucket: $bucket, path: $path, user: ${user.email}',
+      );
       log('File size: ${fileBytes.length} bytes');
       log('Content type: $contentType');
-      
+
       // Test bucket access first
       try {
         final bucketTest = await _supabase.storage.from(bucket).list();
-        log('Bucket access test successful for $bucket: ${bucketTest.length} files');
+        log(
+          'Bucket access test successful for $bucket: ${bucketTest.length} files',
+        );
       } catch (e) {
         log('Bucket access test failed for $bucket: $e');
-        throw Exception('Cannot access bucket "$bucket". Please check bucket configuration and policies.');
+        throw Exception(
+          'Cannot access bucket "$bucket". Please check bucket configuration and policies.',
+        );
       }
-      
+
       // Generate a unique filename to avoid conflicts
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniquePath = '${timestamp}_$path';
       log('Generated unique path: $uniquePath');
-      
+
       // Upload the file
       log('Starting file upload...');
       final response = await _supabase.storage
           .from(bucket)
-          .uploadBinary(uniquePath, fileBytes, fileOptions: FileOptions(
-            contentType: contentType,
-            upsert: false, // Don't overwrite existing files
-          ));
+          .uploadBinary(
+            uniquePath,
+            fileBytes,
+            fileOptions: FileOptions(
+              contentType: contentType,
+              upsert: false, // Don't overwrite existing files
+            ),
+          );
       log('Upload response: $response');
 
       // Get the public URL
       final url = _supabase.storage.from(bucket).getPublicUrl(uniquePath);
       log('Successfully uploaded file to: $url');
-      
+
       return url;
     } catch (e) {
       log('Error uploading file to bucket $bucket, path $path: $e');
       log('Error type: ${e.runtimeType}');
       log('Error details: ${e.toString()}');
-      
+
       // Provide more specific error messages
       if (e.toString().contains('new row violates row-level security policy')) {
-        throw Exception('Storage RLS policy violation. Please check storage bucket policies for "$bucket". Run the storage setup script or configure policies manually.');
+        throw Exception(
+          'Storage RLS policy violation. Please check storage bucket policies for "$bucket". Run the storage setup script or configure policies manually.',
+        );
       } else if (e.toString().contains('bucket not found')) {
-        throw Exception('Storage bucket "$bucket" not found. Please check your Supabase configuration.');
+        throw Exception(
+          'Storage bucket "$bucket" not found. Please check your Supabase configuration.',
+        );
       } else if (e.toString().contains('file size limit')) {
-        throw Exception('File size exceeds the allowed limit for bucket "$bucket".');
+        throw Exception(
+          'File size exceeds the allowed limit for bucket "$bucket".',
+        );
       } else if (e.toString().contains('Unauthorized')) {
-        throw Exception('Unauthorized access to storage. Please ensure you are authenticated and have proper permissions for bucket "$bucket".');
+        throw Exception(
+          'Unauthorized access to storage. Please ensure you are authenticated and have proper permissions for bucket "$bucket".',
+        );
       } else {
         throw Exception('Failed to upload file: $e');
       }
@@ -281,11 +302,9 @@ class TopicsService {
   }) async {
     try {
       log('Deleting file from bucket: $bucket, path: $path');
-      
-      await _supabase.storage
-          .from(bucket)
-          .remove([path]);
-      
+
+      await _supabase.storage.from(bucket).remove([path]);
+
       log('Successfully deleted file from bucket: $bucket, path: $path');
     } catch (e) {
       log('Error deleting file from bucket $bucket, path $path: $e');
@@ -297,7 +316,7 @@ class TopicsService {
   Future<int> getNextOrderIndex(String subjectId) async {
     try {
       log('Getting next order index for subject ID: $subjectId');
-      
+
       final response = await _supabase
           .from('topics')
           .select('order_index')
@@ -312,8 +331,10 @@ class TopicsService {
 
       final maxOrderIndex = response.first['order_index'] as int;
       final nextOrderIndex = maxOrderIndex + 1;
-      log('Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI');
-      
+      log(
+        'Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI',
+      );
+
       return nextOrderIndex;
     } catch (e) {
       log('Error getting next order index: $e');
@@ -325,25 +346,27 @@ class TopicsService {
   Future<void> reorderTopics(String subjectId) async {
     try {
       log('Reordering topics for subject ID: $subjectId');
-      
+
       // Get all topics ordered by current order_index
       final topics = await getTopics(subjectId);
-      
+
       // Update order_index to be sequential (1, 2, 3, ...)
       for (int i = 0; i < topics.length; i++) {
         final topic = topics[i];
         final newOrderIndex = i + 1;
-        
+
         if (topic.orderIndex != newOrderIndex) {
-          log('Updating topic ${topic.name} order from ${topic.orderIndex} to $newOrderIndex');
-          
+          log(
+            'Updating topic ${topic.name} order from ${topic.orderIndex} to $newOrderIndex',
+          );
+
           await _supabase
               .from('topics')
               .update({'order_index': newOrderIndex})
               .eq('id', topic.id);
         }
       }
-      
+
       log('Successfully reordered ${topics.length} topics');
     } catch (e) {
       log('Error reordering topics: $e');
@@ -352,10 +375,14 @@ class TopicsService {
   }
 
   // Move topic to a specific position and reorder others
-  Future<void> moveTopicToPosition(String topicId, int newPosition, String subjectId) async {
+  Future<void> moveTopicToPosition(
+    String topicId,
+    int newPosition,
+    String subjectId,
+  ) async {
     try {
       log('Moving topic $topicId to position $newPosition');
-      
+
       // Get current topic
       final currentTopic = await getTopicById(topicId);
       if (currentTopic == null) {
@@ -364,58 +391,54 @@ class TopicsService {
 
       // Get all topics
       final topics = await getTopics(subjectId);
-      
+
       if (newPosition < 1 || newPosition > topics.length) {
-        throw Exception('Invalid position: $newPosition. Must be between 1 and ${topics.length}');
+        throw Exception(
+          'Invalid position: $newPosition. Must be between 1 and ${topics.length}',
+        );
       }
 
-      // Since the UI displays topics in reverse order, we need to convert the position
-      // Position 1 in UI = highest order index in database
-      // Position N in UI = lowest order index in database
-      final targetOrderIndex = topics.length - newPosition + 1;
       final currentPosition = currentTopic.orderIndex;
-      
-      if (currentPosition == targetOrderIndex) {
-        log('Topic is already at position $newPosition (order index $targetOrderIndex)');
+
+      if (currentPosition == newPosition) {
+        log('Topic is already at position $newPosition');
         return;
       }
 
-      log('Converting UI position $newPosition to database order index $targetOrderIndex');
+      log(
+        'Moving topic from position $currentPosition to position $newPosition',
+      );
 
-      // If moving to a higher UI position (lower order index in database)
-      if (targetOrderIndex < currentPosition) {
-        // Shift topics between target and current position up by 1
-        for (final topic in topics) {
-          if (topic.orderIndex >= targetOrderIndex && topic.orderIndex < currentPosition) {
-            await _supabase
-                .from('topics')
-                .update({'order_index': topic.orderIndex + 1})
-                .eq('id', topic.id);
-          }
-        }
-      } else {
-        // If moving to a lower UI position (higher order index in database)
-        // Shift topics between current and target position down by 1
-        for (final topic in topics) {
-          if (topic.orderIndex > currentPosition && topic.orderIndex <= targetOrderIndex) {
-            await _supabase
-                .from('topics')
-                .update({'order_index': topic.orderIndex - 1})
-                .eq('id', topic.id);
-          }
-        }
+      // Create a new list with the topic moved to the new position
+      final updatedTopics = <Map<String, dynamic>>[];
+
+      // Add topics before the new position
+      for (int i = 1; i < newPosition; i++) {
+        final topic = topics.firstWhere((t) => t.orderIndex == i);
+        updatedTopics.add({'id': topic.id, 'order_index': i});
       }
 
-      // Update the moved topic to the target order index
-      await _supabase
-          .from('topics')
-          .update({'order_index': targetOrderIndex})
-          .eq('id', topicId);
+      // Add the moved topic at the new position
+      updatedTopics.add({'id': topicId, 'order_index': newPosition});
 
-      log('Successfully moved topic to UI position $newPosition (database order index $targetOrderIndex)');
+      // Add topics after the new position, shifting their order
+      for (int i = newPosition + 1; i <= topics.length; i++) {
+        final topic = topics.firstWhere((t) => t.orderIndex == i - 1);
+        updatedTopics.add({'id': topic.id, 'order_index': i});
+      }
+
+      // Update all topics in a single transaction
+      for (final update in updatedTopics) {
+        await _supabase
+            .from('topics')
+            .update({'order_index': update['order_index']})
+            .eq('id', update['id']);
+      }
+
+      log('Successfully moved topic to position $newPosition');
     } catch (e) {
       log('Error moving topic to position: $e');
-      throw Exception('Failed to move topic: $e');
+      throw Exception('Failed to move topic to position: $e');
     }
   }
 }

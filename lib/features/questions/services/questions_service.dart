@@ -8,27 +8,37 @@ class QuestionsService {
   final SupabaseClient _supabase = SupabaseConfig.client;
 
   // Get all questions for a specific subject and section type
-  Future<List<Question>> getQuestions(String subjectId, {String? sectionType}) async {
+  Future<List<Question>> getQuestions(
+    String subjectId, {
+    String? topicId,
+    String? sectionType,
+  }) async {
     try {
-      log('Getting questions for subject ID: $subjectId, section: $sectionType');
-      
+      log(
+        'Getting questions for subject ID: $subjectId, topic ID: $topicId, section: $sectionType',
+      );
+
       var queryBuilder = _supabase
           .from('questions')
           .select()
           .eq('subject_id', subjectId);
 
+      if (topicId != null) {
+        queryBuilder = queryBuilder.eq('topic_id', topicId);
+      }
+
       if (sectionType != null) {
         queryBuilder = queryBuilder.eq('section_type', sectionType);
       }
-      
+
       final response = await queryBuilder.order('created_at', ascending: false);
 
       final questions = (response as List)
           .map((json) => Question.fromJson(json))
           .toList();
-      
+
       log('Fetched ${questions.length} questions for subject ID: $subjectId');
-      
+
       return questions;
     } catch (e) {
       log('Error fetching questions for subject ID $subjectId: $e');
@@ -40,7 +50,7 @@ class QuestionsService {
   Future<Question?> getQuestionById(String questionId) async {
     try {
       log('Getting question by ID: $questionId');
-      
+
       final response = await _supabase
           .from('questions')
           .select()
@@ -49,7 +59,7 @@ class QuestionsService {
 
       final question = Question.fromJson(response);
       log('Fetched question: ${question.questionText.substring(0, 50)}...');
-      
+
       return question;
     } catch (e) {
       log('Error getting question by ID $questionId: $e');
@@ -58,25 +68,29 @@ class QuestionsService {
   }
 
   // Upload image to Supabase Storage
-  Future<String?> uploadImage(Uint8List fileBytes, String fileName, String bucket) async {
+  Future<String?> uploadImage(
+    Uint8List fileBytes,
+    String fileName,
+    String bucket,
+  ) async {
     try {
       log('Uploading image: $fileName to bucket: $bucket');
-      
+
       // Generate unique filename with timestamp
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final uniqueFileName = '${timestamp}_$fileName';
-      
+
       await _supabase.storage
           .from(bucket)
           .uploadBinary(uniqueFileName, fileBytes);
 
       log('Image uploaded successfully: $uniqueFileName');
-      
+
       // Get the public URL
       final publicUrl = _supabase.storage
           .from(bucket)
           .getPublicUrl(uniqueFileName);
-      
+
       log('Public URL generated: $publicUrl');
       return publicUrl;
     } catch (e) {
@@ -90,6 +104,7 @@ class QuestionsService {
     required String questionText,
     String? questionImageUrl,
     required String subjectId,
+    String? topicId,
     required String sectionType,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
@@ -100,16 +115,19 @@ class QuestionsService {
   }) async {
     try {
       log('Creating question for subject ID: $subjectId');
-      
+
       // Convert answer choices to JSON format for database
-      final answerChoicesJson = answerChoices.map((choice) => choice.toJson()).toList();
-      
+      final answerChoicesJson = answerChoices
+          .map((choice) => choice.toJson())
+          .toList();
+
       final response = await _supabase
           .from('questions')
           .insert({
             'question_text': questionText,
             'question_image_url': questionImageUrl,
             'subject_id': subjectId,
+            'topic_id': topicId,
             'section_type': sectionType,
             'answer_choices': answerChoicesJson,
             'correct_answer': correctAnswer,
@@ -123,7 +141,7 @@ class QuestionsService {
 
       final question = Question.fromJson(response);
       log('Created question with ID: ${question.id}');
-      
+
       return question;
     } catch (e) {
       log('Error creating question: $e');
@@ -137,6 +155,7 @@ class QuestionsService {
     required String questionText,
     String? questionImageUrl,
     required String subjectId,
+    String? topicId,
     required String sectionType,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
@@ -147,16 +166,19 @@ class QuestionsService {
   }) async {
     try {
       log('Updating question with ID: $id');
-      
+
       // Convert answer choices to JSON format for database
-      final answerChoicesJson = answerChoices.map((choice) => choice.toJson()).toList();
-      
+      final answerChoicesJson = answerChoices
+          .map((choice) => choice.toJson())
+          .toList();
+
       final response = await _supabase
           .from('questions')
           .update({
             'question_text': questionText,
             'question_image_url': questionImageUrl,
             'subject_id': subjectId,
+            'topic_id': topicId,
             'section_type': sectionType,
             'answer_choices': answerChoicesJson,
             'correct_answer': correctAnswer,
@@ -172,7 +194,7 @@ class QuestionsService {
 
       final question = Question.fromJson(response);
       log('Updated question with ID: ${question.id}');
-      
+
       return question;
     } catch (e) {
       log('Error updating question with ID $id: $e');
@@ -184,12 +206,9 @@ class QuestionsService {
   Future<void> deleteQuestion(String id) async {
     try {
       log('Deleting question with ID: $id');
-      
-      await _supabase
-          .from('questions')
-          .delete()
-          .eq('id', id);
-      
+
+      await _supabase.from('questions').delete().eq('id', id);
+
       log('Deleted question with ID: $id');
     } catch (e) {
       log('Error deleting question with ID $id: $e');
@@ -200,8 +219,10 @@ class QuestionsService {
   // Get questions count for a subject
   Future<int> getQuestionsCount(String subjectId, {String? sectionType}) async {
     try {
-      log('Getting questions count for subject ID: $subjectId, section: $sectionType');
-      
+      log(
+        'Getting questions count for subject ID: $subjectId, section: $sectionType',
+      );
+
       var query = _supabase
           .from('questions')
           .select('id')
@@ -216,7 +237,7 @@ class QuestionsService {
 
       final count = (response as List).length;
       log('Found $count questions for subject ID: $subjectId');
-      
+
       return count;
     } catch (e) {
       log('Error getting questions count for subject ID $subjectId: $e');
@@ -225,15 +246,25 @@ class QuestionsService {
   }
 
   // Get questions statistics for a subject
-  Future<Map<String, int>> getQuestionsStats(String subjectId, {String? sectionType}) async {
+  Future<Map<String, int>> getQuestionsStats(
+    String subjectId, {
+    String? topicId,
+    String? sectionType,
+  }) async {
     try {
-      log('Getting questions statistics for subject ID: $subjectId, section: $sectionType');
-      
+      log(
+        'Getting questions statistics for subject ID: $subjectId, topic ID: $topicId, section: $sectionType',
+      );
+
       var query = _supabase
           .from('questions')
           .select('difficulty_level')
           .eq('subject_id', subjectId)
           .eq('is_active', true);
+
+      if (topicId != null) {
+        query = query.eq('topic_id', topicId);
+      }
 
       if (sectionType != null) {
         query = query.eq('section_type', sectionType);
@@ -248,9 +279,9 @@ class QuestionsService {
         'medium': questions.where((q) => q['difficulty_level'] == 3).length,
         'hard': questions.where((q) => q['difficulty_level'] >= 4).length,
       };
-      
+
       log('Questions stats for subject ID $subjectId: $stats');
-      
+
       return stats;
     } catch (e) {
       log('Error getting questions stats for subject ID $subjectId: $e');
@@ -259,10 +290,16 @@ class QuestionsService {
   }
 
   // Get random questions for practice test
-  Future<List<Question>> getRandomQuestions(String subjectId, int count, {int? difficultyLevel}) async {
+  Future<List<Question>> getRandomQuestions(
+    String subjectId,
+    int count, {
+    int? difficultyLevel,
+  }) async {
     try {
-      log('Getting $count random questions for subject ID: $subjectId, difficulty: $difficultyLevel');
-      
+      log(
+        'Getting $count random questions for subject ID: $subjectId, difficulty: $difficultyLevel',
+      );
+
       var query = _supabase
           .from('questions')
           .select()
@@ -282,9 +319,9 @@ class QuestionsService {
       // Shuffle and take the requested count
       allQuestions.shuffle();
       final selectedQuestions = allQuestions.take(count).toList();
-      
+
       log('Selected ${selectedQuestions.length} random questions');
-      
+
       return selectedQuestions;
     } catch (e) {
       log('Error getting random questions for subject ID $subjectId: $e');

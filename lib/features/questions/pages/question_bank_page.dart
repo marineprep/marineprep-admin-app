@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_layout.dart';
 import '../../subjects/providers/subjects_provider.dart';
+import '../../subjects/providers/topics_provider.dart';
 import '../widgets/add_question_dialog.dart';
 import '../models/question.dart';
 import '../providers/questions_provider.dart';
@@ -18,6 +19,8 @@ class QuestionBankPage extends ConsumerStatefulWidget {
 class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
   String? selectedSubjectId;
   String? selectedSubjectName;
+  String? selectedTopicId;
+  String? selectedTopicName;
 
   @override
   Widget build(BuildContext context) {
@@ -39,22 +42,22 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
                   children: [
                     Text(
                       'Question Bank',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Manage questions for each subject',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.gray600,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: AppColors.gray600),
                     ),
                   ],
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  onPressed: selectedSubjectId != null 
+                  onPressed:
+                      selectedSubjectId != null && selectedTopicId != null
                       ? () => _showAddQuestionDialog(context)
                       : null,
                   icon: const Icon(Iconsax.add),
@@ -87,21 +90,30 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
                   child: DropdownButtonHideUnderline(
                     child: subjectsAsync.when(
                       data: (subjectsData) {
-                        final subjects = subjectsData.map((data) => data['subject']).cast<dynamic>().toList();
+                        final subjects = subjectsData
+                            .map((data) => data['subject'])
+                            .cast<dynamic>()
+                            .toList();
                         return DropdownButton<String>(
                           value: selectedSubjectId,
                           hint: const Text('Choose a subject'),
-                          items: subjects.map<DropdownMenuItem<String>>((subject) {
+                          items: subjects.map<DropdownMenuItem<String>>((
+                            subject,
+                          ) {
                             return DropdownMenuItem<String>(
                               value: subject.id,
                               child: Text(subject.name),
                             );
                           }).toList(),
                           onChanged: (value) {
-                            final selectedSubject = subjects.firstWhere((s) => s.id == value);
+                            final selectedSubject = subjects.firstWhere(
+                              (s) => s.id == value,
+                            );
                             setState(() {
                               selectedSubjectId = value;
                               selectedSubjectName = selectedSubject.name;
+                              selectedTopicId = null;
+                              selectedTopicName = null;
                             });
                           },
                         );
@@ -113,14 +125,69 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Topic Filter
+            if (selectedSubjectId != null)
+              Row(
+                children: [
+                  Text(
+                    'Select Topic:',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.gray300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          final topicsAsync = ref.watch(
+                            topicsProvider(selectedSubjectId!),
+                          );
+                          return topicsAsync.when(
+                            data: (topics) {
+                              return DropdownButton<String>(
+                                value: selectedTopicId,
+                                hint: const Text('Choose a topic'),
+                                items: topics.map<DropdownMenuItem<String>>((
+                                  topic,
+                                ) {
+                                  return DropdownMenuItem<String>(
+                                    value: topic.id,
+                                    child: Text(topic.name),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  final selectedTopic = topics.firstWhere(
+                                    (t) => t.id == value,
+                                  );
+                                  setState(() {
+                                    selectedTopicId = value;
+                                    selectedTopicName = selectedTopic.name;
+                                  });
+                                },
+                              );
+                            },
+                            loading: () => const CircularProgressIndicator(),
+                            error: (error, stack) => Text('Error: $error'),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: 24),
 
             // Filter Info
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -131,11 +198,7 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Iconsax.info_circle,
-                    size: 20,
-                    color: AppColors.primary,
-                  ),
+                  Icon(Iconsax.info_circle, size: 20, color: AppColors.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -152,11 +215,15 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
 
             // Questions List
             Expanded(
-              child: selectedSubjectId != null
+              child: selectedSubjectId != null && selectedTopicId != null
                   ? _QuestionsList(
                       subjectId: selectedSubjectId!,
+                      topicId: selectedTopicId!,
                       subjectName: selectedSubjectName!,
+                      topicName: selectedTopicName!,
                     )
+                  : selectedSubjectId != null
+                  ? _NoTopicSelected()
                   : _NoSubjectSelected(),
             ),
           ],
@@ -170,6 +237,7 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
       context: context,
       builder: (context) => AddQuestionDialog(
         subjectId: selectedSubjectId!,
+        topicId: selectedTopicId!,
         sectionType: 'question_bank',
       ),
     );
@@ -178,20 +246,25 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
 
 class _QuestionsList extends ConsumerWidget {
   final String subjectId;
+  final String topicId;
   final String subjectName;
+  final String topicName;
 
   const _QuestionsList({
     required this.subjectId,
+    required this.topicId,
     required this.subjectName,
+    required this.topicName,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final questionsFilter = QuestionsFilter(
       subjectId: subjectId,
+      topicId: topicId,
       sectionType: 'question_bank',
     );
-    
+
     final questionsAsync = ref.watch(questionsProvider(questionsFilter));
     final statsAsync = ref.watch(questionsStatsProvider(questionsFilter));
 
@@ -246,7 +319,8 @@ class _QuestionsList extends ConsumerWidget {
             Expanded(
               child: ListView.separated(
                 itemCount: questions.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
                 itemBuilder: (context, index) {
                   final question = questions[index];
                   return _QuestionCard(question: question);
@@ -256,31 +330,25 @@ class _QuestionsList extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Iconsax.warning_2,
-              size: 64,
-              color: AppColors.error,
-            ),
+            Icon(Iconsax.warning_2, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             Text(
               'Error loading questions',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.error,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: AppColors.error),
             ),
             const SizedBox(height: 8),
             Text(
               error.toString(),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.gray600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.gray600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(width: 16),
@@ -336,9 +404,9 @@ class _StatChip extends StatelessWidget {
               ),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: color),
               ),
             ],
           ),
@@ -367,7 +435,10 @@ class _QuestionCard extends ConsumerWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: difficultyColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -382,7 +453,8 @@ class _QuestionCard extends ConsumerWidget {
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
-                  onSelected: (value) => _handleMenuAction(context, ref, value, question),
+                  onSelected: (value) =>
+                      _handleMenuAction(context, ref, value, question),
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'edit',
@@ -400,15 +472,15 @@ class _QuestionCard extends ConsumerWidget {
                         children: [
                           Icon(Iconsax.trash, color: AppColors.error),
                           SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: AppColors.error)),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: AppColors.error),
+                          ),
                         ],
                       ),
                     ),
                   ],
-                  child: const Icon(
-                    Iconsax.more,
-                    color: AppColors.gray400,
-                  ),
+                  child: const Icon(Iconsax.more, color: AppColors.gray400),
                 ),
               ],
             ),
@@ -417,10 +489,50 @@ class _QuestionCard extends ConsumerWidget {
             // Question
             Text(
               question.questionText,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
+            if (question.topicId != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Consumer(
+                  builder: (context, ref, child) {
+                    final topicAsync = ref.watch(
+                      topicProvider(question.topicId!),
+                    );
+                    return topicAsync.when(
+                      data: (topic) => Text(
+                        'Topic: ${topic?.name ?? 'Unknown Topic'}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      loading: () => Text(
+                        'Topic: Loading...',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      error: (error, stack) => Text(
+                        'Topic: Error',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             if (question.questionImageUrl != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -431,11 +543,7 @@ class _QuestionCard extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Iconsax.image,
-                      color: AppColors.gray600,
-                      size: 20,
-                    ),
+                    Icon(Iconsax.image, color: AppColors.gray600, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Image attached',
@@ -456,14 +564,12 @@ class _QuestionCard extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isCorrect 
+                  color: isCorrect
                       ? AppColors.success.withOpacity(0.1)
                       : AppColors.gray50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isCorrect 
-                        ? AppColors.success 
-                        : AppColors.gray200,
+                    color: isCorrect ? AppColors.success : AppColors.gray200,
                   ),
                 ),
                 child: Row(
@@ -472,16 +578,21 @@ class _QuestionCard extends ConsumerWidget {
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: isCorrect ? AppColors.success : AppColors.gray300,
+                        color: isCorrect
+                            ? AppColors.success
+                            : AppColors.gray300,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Center(
                         child: Text(
                           choice.label,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isCorrect ? Colors.white : AppColors.gray700,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: isCorrect
+                                    ? Colors.white
+                                    : AppColors.gray700,
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ),
                     ),
@@ -538,13 +649,19 @@ class _QuestionCard extends ConsumerWidget {
     }
   }
 
-  void _handleMenuAction(BuildContext context, WidgetRef ref, String action, Question question) {
+  void _handleMenuAction(
+    BuildContext context,
+    WidgetRef ref,
+    String action,
+    Question question,
+  ) {
     switch (action) {
       case 'edit':
         showDialog(
           context: context,
           builder: (context) => AddQuestionDialog(
             subjectId: question.subjectId,
+            topicId: question.topicId,
             sectionType: question.sectionType,
             question: question,
           ),
@@ -556,7 +673,11 @@ class _QuestionCard extends ConsumerWidget {
     }
   }
 
-  void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Question question) {
+  void _showDeleteConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    Question question,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -572,15 +693,20 @@ class _QuestionCard extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              
+
               try {
-                final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
-                  subjectId: question.subjectId,
-                  sectionType: question.sectionType,
-                )).notifier);
-                
+                final questionsNotifier = ref.read(
+                  questionsProvider(
+                    QuestionsFilter(
+                      subjectId: question.subjectId,
+                      topicId: question.topicId,
+                      sectionType: question.sectionType,
+                    ),
+                  ).notifier,
+                );
+
                 await questionsNotifier.deleteQuestion(question.id);
-                
+
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -625,11 +751,7 @@ class _NoSubjectSelected extends StatelessWidget {
               color: AppColors.gray100,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Iconsax.book_1,
-              size: 64,
-              color: AppColors.gray400,
-            ),
+            child: Icon(Iconsax.book_1, size: 64, color: AppColors.gray400),
           ),
           const SizedBox(height: 24),
           Text(
@@ -642,9 +764,45 @@ class _NoSubjectSelected extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Choose a subject from the dropdown to view and manage questions',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.gray600,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.gray600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoTopicSelected extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: AppColors.gray100,
+              shape: BoxShape.circle,
             ),
+            child: Icon(Iconsax.folder, size: 64, color: AppColors.gray400),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Select a Topic',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.gray700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Choose a topic from the dropdown to view and manage questions',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.gray600),
           ),
         ],
       ),
@@ -686,9 +844,9 @@ class _EmptyQuestionsState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Add your first question for $subjectName',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.gray600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppColors.gray600),
           ),
         ],
       ),

@@ -12,7 +12,7 @@ class SubjectsService {
   Future<List<Subject>> getSubjects(String examCategoryId) async {
     try {
       log('Getting subjects for exam category ID: $examCategoryId');
-      
+
       final response = await _supabase
           .from('subjects')
           .select()
@@ -22,9 +22,11 @@ class SubjectsService {
       final subjects = (response as List)
           .map((json) => Subject.fromJson(json))
           .toList();
-      
-      log('Fetched ${subjects.length} subjects for exam category ID: $examCategoryId');
-      
+
+      log(
+        'Fetched ${subjects.length} subjects for exam category ID: $examCategoryId',
+      );
+
       return subjects;
     } catch (e) {
       log('Error fetching subjects for exam category ID $examCategoryId: $e');
@@ -36,7 +38,7 @@ class SubjectsService {
   Future<Subject?> getSubjectById(String subjectId) async {
     try {
       log('Getting subject by ID: $subjectId');
-      
+
       final response = await _supabase
           .from('subjects')
           .select()
@@ -45,7 +47,7 @@ class SubjectsService {
 
       final subject = Subject.fromJson(response);
       log('Fetched subject: ${subject.name}');
-      
+
       return subject;
     } catch (e) {
       log('Error getting subject by ID $subjectId: $e');
@@ -63,7 +65,7 @@ class SubjectsService {
   }) async {
     try {
       log('Creating subject: $name for exam category ID: $examCategoryId');
-      
+
       final response = await _supabase
           .from('subjects')
           .insert({
@@ -78,7 +80,7 @@ class SubjectsService {
 
       final subject = Subject.fromJson(response);
       log('Created subject: ${subject.name} with ID: ${subject.id}');
-      
+
       return subject;
     } catch (e) {
       log('Error creating subject $name: $e');
@@ -96,7 +98,7 @@ class SubjectsService {
   }) async {
     try {
       log('Updating subject: $name with ID: $id');
-      
+
       final response = await _supabase
           .from('subjects')
           .update({
@@ -112,7 +114,7 @@ class SubjectsService {
 
       final subject = Subject.fromJson(response);
       log('Updated subject: ${subject.name}');
-      
+
       return subject;
     } catch (e) {
       log('Error updating subject $name with ID $id: $e');
@@ -124,12 +126,9 @@ class SubjectsService {
   Future<void> deleteSubject(String id) async {
     try {
       log('Deleting subject with ID: $id');
-      
-      await _supabase
-          .from('subjects')
-          .delete()
-          .eq('id', id);
-      
+
+      await _supabase.from('subjects').delete().eq('id', id);
+
       log('Deleted subject with ID: $id');
     } catch (e) {
       log('Error deleting subject with ID $id: $e');
@@ -141,7 +140,7 @@ class SubjectsService {
   Future<int> getTopicsCount(String subjectId) async {
     try {
       log('Getting topics count for subject ID: $subjectId');
-      
+
       final response = await _supabase
           .from('topics')
           .select('id')
@@ -150,7 +149,7 @@ class SubjectsService {
 
       final count = (response as List).length;
       log('Found $count topics for subject ID: $subjectId');
-      
+
       return count;
     } catch (e) {
       log('Error getting topics count for subject ID $subjectId: $e');
@@ -159,28 +158,33 @@ class SubjectsService {
   }
 
   // Get subjects with topics count
-  Future<List<Map<String, dynamic>>> getSubjectsWithTopicsCount(String examCategoryId) async {
+  Future<List<Map<String, dynamic>>> getSubjectsWithTopicsCount(
+    String examCategoryId,
+  ) async {
     try {
-      log('Getting subjects with topics count for exam category ID: $examCategoryId');
-      
+      log(
+        'Getting subjects with topics count for exam category ID: $examCategoryId',
+      );
+
       // First get all subjects
       final subjects = await getSubjects(examCategoryId);
-      
+
       // Then get topics count for each subject
       List<Map<String, dynamic>> result = [];
       for (Subject subject in subjects) {
         final topicsCount = await getTopicsCount(subject.id);
-        result.add({
-          'subject': subject,
-          'topicsCount': topicsCount,
-        });
+        result.add({'subject': subject, 'topicsCount': topicsCount});
       }
-      
-      log('Fetched ${result.length} subjects with topics count for exam category ID: $examCategoryId');
-      
+
+      log(
+        'Fetched ${result.length} subjects with topics count for exam category ID: $examCategoryId',
+      );
+
       return result;
     } catch (e) {
-      log('Error getting subjects with topics count for exam category ID $examCategoryId: $e');
+      log(
+        'Error getting subjects with topics count for exam category ID $examCategoryId: $e',
+      );
       throw Exception('Failed to fetch subjects with topics count: $e');
     }
   }
@@ -194,7 +198,7 @@ class SubjectsService {
   Future<int> getNextOrderIndex(String examCategoryId) async {
     try {
       log('Getting next order index for exam category ID: $examCategoryId');
-      
+
       final response = await _supabase
           .from('subjects')
           .select('order_index')
@@ -209,8 +213,10 @@ class SubjectsService {
 
       final maxOrderIndex = response.first['order_index'] as int;
       final nextOrderIndex = maxOrderIndex + 1;
-      log('Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI');
-      
+      log(
+        'Next order index: $nextOrderIndex (max: $maxOrderIndex) - will appear first in UI',
+      );
+
       return nextOrderIndex;
     } catch (e) {
       log('Error getting next order index: $e');
@@ -222,25 +228,27 @@ class SubjectsService {
   Future<void> reorderSubjects(String examCategoryId) async {
     try {
       log('Reordering subjects for exam category ID: $examCategoryId');
-      
+
       // Get all subjects ordered by current order_index
       final subjects = await getSubjects(examCategoryId);
-      
+
       // Update order_index to be sequential (1, 2, 3, ...)
       for (int i = 0; i < subjects.length; i++) {
         final subject = subjects[i];
         final newOrderIndex = i + 1;
-        
+
         if (subject.orderIndex != newOrderIndex) {
-          log('Updating subject ${subject.name} order from ${subject.orderIndex} to $newOrderIndex');
-          
+          log(
+            'Updating subject ${subject.name} order from ${subject.orderIndex} to $newOrderIndex',
+          );
+
           await _supabase
               .from('subjects')
               .update({'order_index': newOrderIndex})
               .eq('id', subject.id);
         }
       }
-      
+
       log('Successfully reordered ${subjects.length} subjects');
     } catch (e) {
       log('Error reordering subjects: $e');
@@ -249,10 +257,14 @@ class SubjectsService {
   }
 
   // Move subject to a specific position and reorder others
-  Future<void> moveSubjectToPosition(String subjectId, int newPosition, String examCategoryId) async {
+  Future<void> moveSubjectToPosition(
+    String subjectId,
+    int newPosition,
+    String examCategoryId,
+  ) async {
     try {
       log('Moving subject $subjectId to position $newPosition');
-      
+
       // Get current subject
       final currentSubject = await getSubjectById(subjectId);
       if (currentSubject == null) {
@@ -261,58 +273,54 @@ class SubjectsService {
 
       // Get all subjects
       final subjects = await getSubjects(examCategoryId);
-      
+
       if (newPosition < 1 || newPosition > subjects.length) {
-        throw Exception('Invalid position: $newPosition. Must be between 1 and ${subjects.length}');
+        throw Exception(
+          'Invalid position: $newPosition. Must be between 1 and ${subjects.length}',
+        );
       }
 
-      // Since the UI displays subjects in reverse order, we need to convert the position
-      // Position 1 in UI = highest order index in database
-      // Position N in UI = lowest order index in database
-      final targetOrderIndex = subjects.length - newPosition + 1;
       final currentPosition = currentSubject.orderIndex;
-      
-      if (currentPosition == targetOrderIndex) {
-        log('Subject is already at position $newPosition (order index $targetOrderIndex)');
+
+      if (currentPosition == newPosition) {
+        log('Subject is already at position $newPosition');
         return;
       }
 
-      log('Converting UI position $newPosition to database order index $targetOrderIndex');
+      log(
+        'Moving subject from position $currentPosition to position $newPosition',
+      );
 
-      // If moving to a higher UI position (lower order index in database)
-      if (targetOrderIndex < currentPosition) {
-        // Shift subjects between target and current position up by 1
-        for (final subject in subjects) {
-          if (subject.orderIndex >= targetOrderIndex && subject.orderIndex < currentPosition) {
-            await _supabase
-                .from('subjects')
-                .update({'order_index': subject.orderIndex + 1})
-                .eq('id', subject.id);
-          }
-        }
-      } else {
-        // If moving to a lower UI position (higher order index in database)
-        // Shift subjects between current and target position down by 1
-        for (final subject in subjects) {
-          if (subject.orderIndex > currentPosition && subject.orderIndex <= targetOrderIndex) {
-            await _supabase
-                .from('subjects')
-                .update({'order_index': subject.orderIndex - 1})
-                .eq('id', subject.id);
-          }
-        }
+      // Create a new list with the subject moved to the new position
+      final updatedSubjects = <Map<String, dynamic>>[];
+
+      // Add subjects before the new position
+      for (int i = 1; i < newPosition; i++) {
+        final subject = subjects.firstWhere((s) => s.orderIndex == i);
+        updatedSubjects.add({'id': subject.id, 'order_index': i});
       }
 
-      // Update the moved subject to the target order index
-      await _supabase
-          .from('subjects')
-          .update({'order_index': targetOrderIndex})
-          .eq('id', subjectId);
+      // Add the moved subject at the new position
+      updatedSubjects.add({'id': subjectId, 'order_index': newPosition});
 
-      log('Successfully moved subject to UI position $newPosition (database order index $targetOrderIndex)');
+      // Add subjects after the new position, shifting their order
+      for (int i = newPosition + 1; i <= subjects.length; i++) {
+        final subject = subjects.firstWhere((s) => s.orderIndex == i - 1);
+        updatedSubjects.add({'id': subject.id, 'order_index': i});
+      }
+
+      // Update all subjects in a single transaction
+      for (final update in updatedSubjects) {
+        await _supabase
+            .from('subjects')
+            .update({'order_index': update['order_index']})
+            .eq('id', update['id']);
+      }
+
+      log('Successfully moved subject to position $newPosition');
     } catch (e) {
       log('Error moving subject to position: $e');
-      throw Exception('Failed to move subject: $e');
+      throw Exception('Failed to move subject to position: $e');
     }
   }
 }

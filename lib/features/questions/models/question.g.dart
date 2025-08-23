@@ -11,6 +11,7 @@ Question _$QuestionFromJson(Map<String, dynamic> json) => Question(
   questionText: json['question_text'] as String,
   questionImageUrl: json['question_image_url'] as String?,
   subjectId: json['subject_id'] as String,
+  topicId: json['topic_id'] as String?,
   sectionType: json['section_type'] as String,
   answerChoices: (json['answer_choices'] as List<dynamic>)
       .map((e) => AnswerChoice.fromJson(e as Map<String, dynamic>))
@@ -29,6 +30,7 @@ Map<String, dynamic> _$QuestionToJson(Question instance) => <String, dynamic>{
   'question_text': instance.questionText,
   'question_image_url': instance.questionImageUrl,
   'subject_id': instance.subjectId,
+  'topic_id': instance.topicId,
   'section_type': instance.sectionType,
   'answer_choices': instance.answerChoices,
   'correct_answer': instance.correctAnswer,

@@ -44,4 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-
+# Supabase constants
+/lib/core/constants/supabase_constants.dart

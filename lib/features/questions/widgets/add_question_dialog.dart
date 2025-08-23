@@ -10,12 +10,14 @@ import '../providers/questions_provider.dart';
 
 class AddQuestionDialog extends ConsumerStatefulWidget {
   final String subjectId;
+  final String? topicId;
   final String sectionType; // 'question_bank' or 'practice_test'
   final Question? question;
 
   const AddQuestionDialog({
     super.key,
     required this.subjectId,
+    this.topicId,
     required this.sectionType,
     this.question,
   });
@@ -27,7 +29,7 @@ class AddQuestionDialog extends ConsumerStatefulWidget {
 class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
-  
+
   // Answer choices
   final List<TextEditingController> _choiceControllers = [
     TextEditingController(),
@@ -35,11 +37,11 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
     TextEditingController(),
     TextEditingController(),
   ];
-  
+
   // Images
   PlatformFile? _questionImage;
   PlatformFile? _explanationImage;
-  
+
   bool get isEditing => widget.question != null;
 
   @override
@@ -52,12 +54,12 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
 
   void _initializeEditData() {
     final question = widget.question!;
-    
+
     // Initialize answer choices
     for (int i = 0; i < question.answerChoices.length && i < 4; i++) {
       _choiceControllers[i].text = question.answerChoices[i].text;
     }
-    
+
     // Note: Form field initial values are already set in the FormBuilder widgets
     // using initialValue: widget.question?.field
     // No need to set them here manually as FormBuilder handles this
@@ -162,10 +164,11 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                           child: Center(
                             child: Text(
                               label,
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                           ),
                         ),
@@ -200,10 +203,12 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                     prefixIcon: Icon(Iconsax.tick_circle),
                   ),
                   items: ['A', 'B', 'C', 'D']
-                      .map((choice) => DropdownMenuItem(
-                            value: choice,
-                            child: Text('Choice $choice'),
-                          ))
+                      .map(
+                        (choice) => DropdownMenuItem(
+                          value: choice,
+                          child: Text('Choice $choice'),
+                        ),
+                      )
                       .toList(),
                   validator: FormBuilderValidators.required(),
                 ),
@@ -239,7 +244,8 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                 _ImageUploadSection(
                   title: 'Explanation Image (Optional)',
                   file: _explanationImage,
-                  onFilePicked: (file) => setState(() => _explanationImage = file),
+                  onFilePicked: (file) =>
+                      setState(() => _explanationImage = file),
                   onFileRemoved: () => setState(() => _explanationImage = null),
                 ),
                 const SizedBox(height: 24),
@@ -315,7 +321,9 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       if (_choiceControllers[i].text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Please fill in choice ${String.fromCharCode(65 + i)}'),
+            content: Text(
+              'Please fill in choice ${String.fromCharCode(65 + i)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -335,11 +343,15 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       String? explanationImageUrl;
 
       if (_questionImage != null) {
-        final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
-          subjectId: widget.subjectId,
-          sectionType: widget.sectionType,
-        )).notifier);
-        
+        final questionsNotifier = ref.read(
+          questionsProvider(
+            QuestionsFilter(
+              subjectId: widget.subjectId,
+              sectionType: widget.sectionType,
+            ),
+          ).notifier,
+        );
+
         questionImageUrl = await questionsNotifier.uploadImage(
           _questionImage!.bytes!,
           _questionImage!.name,
@@ -350,11 +362,16 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       }
 
       if (_explanationImage != null) {
-        final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
-          subjectId: widget.subjectId,
-          sectionType: widget.sectionType,
-        )).notifier);
-        
+        final questionsNotifier = ref.read(
+          questionsProvider(
+            QuestionsFilter(
+              subjectId: widget.subjectId,
+              topicId: widget.topicId,
+              sectionType: widget.sectionType,
+            ),
+          ).notifier,
+        );
+
         explanationImageUrl = await questionsNotifier.uploadImage(
           _explanationImage!.bytes!,
           _explanationImage!.name,
@@ -367,16 +384,23 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       // Create answer choices
       final answerChoices = <AnswerChoice>[];
       for (int i = 0; i < 4; i++) {
-        answerChoices.add(AnswerChoice(
-          label: String.fromCharCode(65 + i), // A, B, C, D
-          text: _choiceControllers[i].text.trim(),
-        ));
+        answerChoices.add(
+          AnswerChoice(
+            label: String.fromCharCode(65 + i), // A, B, C, D
+            text: _choiceControllers[i].text.trim(),
+          ),
+        );
       }
 
-      final questionsNotifier = ref.read(questionsProvider(QuestionsFilter(
-        subjectId: widget.subjectId,
-        sectionType: widget.sectionType,
-      )).notifier);
+      final questionsNotifier = ref.read(
+        questionsProvider(
+          QuestionsFilter(
+            subjectId: widget.subjectId,
+            topicId: widget.topicId,
+            sectionType: widget.sectionType,
+          ),
+        ).notifier,
+      );
 
       if (isEditing) {
         // Update existing question
@@ -385,6 +409,7 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
           questionText: formData['questionText'],
           questionImageUrl: questionImageUrl,
           sectionType: widget.sectionType,
+          topicId: widget.topicId,
           answerChoices: answerChoices,
           correctAnswer: formData['correctAnswer'],
           explanationText: formData['explanationText'],
@@ -398,6 +423,7 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
           questionText: formData['questionText'],
           questionImageUrl: questionImageUrl,
           sectionType: widget.sectionType,
+          topicId: widget.topicId,
           answerChoices: answerChoices,
           correctAnswer: formData['correctAnswer'],
           explanationText: formData['explanationText'],
@@ -465,7 +491,7 @@ class _ImageUploadSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        
+
         if (file != null) ...[
           Container(
             padding: const EdgeInsets.all(16),
@@ -476,11 +502,7 @@ class _ImageUploadSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
-                  Iconsax.image,
-                  color: AppColors.success,
-                  size: 20,
-                ),
+                Icon(Iconsax.image, color: AppColors.success, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

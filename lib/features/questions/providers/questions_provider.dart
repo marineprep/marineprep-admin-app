@@ -38,6 +38,7 @@ final questionsStatsProvider =
       final service = ref.read(questionsServiceProvider);
       return await service.getQuestionsStats(
         filter.subjectId,
+        topicId: filter.topicId,
         sectionType: filter.sectionType,
       );
     });
@@ -45,9 +46,14 @@ final questionsStatsProvider =
 // Filter class for questions
 class QuestionsFilter {
   final String subjectId;
+  final String? topicId;
   final String? sectionType;
 
-  const QuestionsFilter({required this.subjectId, this.sectionType});
+  const QuestionsFilter({
+    required this.subjectId, 
+    this.topicId, 
+    this.sectionType
+  });
 
   @override
   bool operator ==(Object other) =>
@@ -55,10 +61,11 @@ class QuestionsFilter {
       other is QuestionsFilter &&
           runtimeType == other.runtimeType &&
           subjectId == other.subjectId &&
+          topicId == other.topicId &&
           sectionType == other.sectionType;
 
   @override
-  int get hashCode => subjectId.hashCode ^ sectionType.hashCode;
+  int get hashCode => subjectId.hashCode ^ topicId.hashCode ^ sectionType.hashCode;
 }
 
 class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
@@ -79,6 +86,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
       state = const AsyncValue.loading();
       final questions = await _service.getQuestions(
         _filter.subjectId,
+        topicId: _filter.topicId,
         sectionType: _filter.sectionType,
       );
       state = AsyncValue.data(questions);
@@ -93,6 +101,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
     required String questionText,
     String? questionImageUrl,
     required String sectionType,
+    String? topicId,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
     required String explanationText,
@@ -107,6 +116,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         questionText: questionText,
         questionImageUrl: questionImageUrl,
         subjectId: _filter.subjectId,
+        topicId: topicId,
         sectionType: sectionType,
         answerChoices: answerChoices,
         correctAnswer: correctAnswer,
@@ -135,6 +145,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
     required String questionText,
     String? questionImageUrl,
     required String sectionType,
+    String? topicId,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
     required String explanationText,
@@ -150,6 +161,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         questionText: questionText,
         questionImageUrl: questionImageUrl,
         subjectId: _filter.subjectId,
+        topicId: topicId,
         sectionType: sectionType,
         answerChoices: answerChoices,
         correctAnswer: correctAnswer,

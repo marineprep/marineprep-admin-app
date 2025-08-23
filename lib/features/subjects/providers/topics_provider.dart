@@ -168,13 +168,16 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
     loadTopics();
   }
 
-    // Move topic to a specific position
+  // Move topic to a specific position
   Future<void> moveTopicToPosition(String topicId, int newPosition) async {
     try {
       log('Moving topic $topicId to position $newPosition');
-      
+
       await _service.moveTopicToPosition(topicId, newPosition, _subjectId);
-      
+
+      // Add a small delay to ensure database operations complete
+      await Future.delayed(const Duration(milliseconds: 100));
+
       // Reload to update the UI with the new order
       await loadTopics();
       log('Successfully moved topic to position $newPosition');

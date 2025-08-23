@@ -11,6 +11,8 @@ class Question {
   final String? questionImageUrl;
   @JsonKey(name: 'subject_id')
   final String subjectId;
+  @JsonKey(name: 'topic_id')
+  final String? topicId;
   @JsonKey(name: 'section_type')
   final String sectionType; // 'question_bank' or 'practice_test'
   @JsonKey(name: 'answer_choices')
@@ -35,6 +37,7 @@ class Question {
     required this.questionText,
     this.questionImageUrl,
     required this.subjectId,
+    this.topicId,
     required this.sectionType,
     required this.answerChoices,
     required this.correctAnswer,
@@ -56,6 +59,7 @@ class Question {
     String? questionText,
     String? questionImageUrl,
     String? subjectId,
+    String? topicId,
     String? sectionType,
     List<AnswerChoice>? answerChoices,
     String? correctAnswer,
@@ -71,6 +75,7 @@ class Question {
       questionText: questionText ?? this.questionText,
       questionImageUrl: questionImageUrl ?? this.questionImageUrl,
       subjectId: subjectId ?? this.subjectId,
+      topicId: topicId ?? this.topicId,
       sectionType: sectionType ?? this.sectionType,
       answerChoices: answerChoices ?? this.answerChoices,
       correctAnswer: correctAnswer ?? this.correctAnswer,

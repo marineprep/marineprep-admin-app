@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,15 +52,30 @@ class _SubjectsPageState extends ConsumerState<SubjectsPage> {
                   ],
                 ),
                 const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      _showAddSubjectDialog(context, ref, examCategoryId),
-                  icon: const Icon(Iconsax.add),
-                  label: const Text('Add Subject'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () =>
+                          ref.refresh(subjectsProvider(examCategoryId)),
+                      icon: const Icon(Iconsax.refresh),
+                      tooltip: 'Refresh subjects',
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.gray100,
+                        foregroundColor: AppColors.gray600,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          _showAddSubjectDialog(context, ref, examCategoryId),
+                      icon: const Icon(Iconsax.add),
+                      label: const Text('Add Subject'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -163,67 +177,6 @@ class _SubjectsGrid extends ConsumerWidget {
     required this.showInactiveItems,
   });
 
-  void _onSubjectReorder(
-    BuildContext context,
-    WidgetRef ref,
-    List<Map<String, dynamic>> subjects,
-    int oldIndex,
-    int newIndex,
-    String examCategoryId,
-  ) {
-    try {
-      // Since the UI displays subjects in reverse order, we need to convert indices
-      // UI index 0 = last subject in database (highest order index)
-      // UI index N = first subject in database (lowest order index)
-      final reversedSubjects = subjects.reversed.toList();
-
-      if (oldIndex < 0 ||
-          newIndex < 0 ||
-          oldIndex >= reversedSubjects.length ||
-          newIndex >= reversedSubjects.length) {
-        return;
-      }
-
-      final subject = reversedSubjects[oldIndex]['subject'] as Subject;
-
-      // Convert UI position to database position
-      // UI position 0 = database position N (highest)
-      // UI position N = database position 1 (lowest)
-      final newPosition = reversedSubjects.length - newIndex;
-
-      log(
-        'Reordering subject ${subject.name} from UI position $oldIndex to UI position $newIndex (database position $newPosition)',
-      );
-
-      // Move the subject to the new position
-      ref
-          .read(subjectsProvider(examCategoryId).notifier)
-          .moveSubjectToPosition(subject.id, newPosition);
-
-      // Show success toast with correct position
-      // The newIndex is already the correct UI position (0-based), so add 1 for display
-      final displayPosition = newIndex + 1;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${subject.name} moved to position $displayPosition'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      log('Error reordering subject: $e');
-
-      // Show error toast
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to reorder subject: $e'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subjectsAsync = ref.watch(subjectsProvider(examCategoryId));
@@ -269,18 +222,8 @@ class _SubjectsGrid extends ConsumerWidget {
           return _EmptyState();
         }
 
-        return ReorderableListView.builder(
+        return ListView.builder(
           itemCount: filteredSubjects.length,
-          onReorder: (oldIndex, newIndex) {
-            _onSubjectReorder(
-              context,
-              ref,
-              filteredSubjects,
-              oldIndex,
-              newIndex,
-              examCategoryId,
-            );
-          },
           itemBuilder: (context, index) {
             final subjectData = filteredSubjects.reversed.toList()[index];
             final subject = subjectData['subject'] as Subject;
@@ -293,6 +236,7 @@ class _SubjectsGrid extends ConsumerWidget {
                 subject: subject,
                 topicsCount: topicsCount,
                 examCategoryId: examCategoryId,
+                position: index + 1,
               ),
             );
           },
@@ -306,11 +250,13 @@ class _SubjectCard extends ConsumerWidget {
   final Subject subject;
   final int topicsCount;
   final String examCategoryId;
+  final int position;
 
   const _SubjectCard({
     required this.subject,
     required this.topicsCount,
     required this.examCategoryId,
+    required this.position,
   });
 
   @override
@@ -328,6 +274,25 @@ class _SubjectCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
+                  // Order indicator
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${position}',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       subject.name,
@@ -503,6 +468,8 @@ class _SubjectCard extends ConsumerWidget {
             onPressed: () async {
               try {
                 Navigator.of(context).pop();
+
+                // Use the provider directly for deletion
                 await ref
                     .read(subjectsProvider(examCategoryId).notifier)
                     .deleteSubject(subject.id);
