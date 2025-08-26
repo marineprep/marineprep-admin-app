@@ -24,106 +24,169 @@ class AddSubjectDialog extends ConsumerStatefulWidget {
 class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
+  bool _hasUnsavedChanges = false;
 
   bool get isEditing => widget.subject != null;
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              isEditing ? Iconsax.edit : Iconsax.add,
-              color: AppColors.primary,
-              size: 20,
-            ),
+  void initState() {
+    super.initState();
+  }
+
+  void _markAsChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+      print('Subject form marked as changed');
+    }
+  }
+
+  Future<bool> _showCancelConfirmation() async {
+    print('Subject checking for changes: $_hasUnsavedChanges');
+
+    if (!_hasUnsavedChanges) {
+      return true; // No changes, allow immediate cancel
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text(
+          'You have unsaved changes. Are you sure you want to cancel?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Continue Editing'),
           ),
-          const SizedBox(width: 12),
-          Text(isEditing ? 'Edit Subject' : 'Add New Subject'),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Discard Changes'),
+          ),
         ],
       ),
-      content: SizedBox(
-        width: 500,
-        child: FormBuilder(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FormBuilderTextField(
-                name: 'name',
-                initialValue: widget.subject?.name,
-                decoration: const InputDecoration(
-                  labelText: 'Subject Name',
-                  hintText: 'e.g., Mathematics, Physics',
-                  prefixIcon: Icon(Iconsax.book_1),
-                ),
-                validator: FormBuilderValidators.compose([
-                  FormBuilderValidators.required(),
-                  FormBuilderValidators.minLength(2),
-                  FormBuilderValidators.maxLength(100),
-                ]),
+    );
+
+    return result ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _showCancelConfirmation,
+      child: AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(height: 16),
-              FormBuilderTextField(
-                name: 'description',
-                initialValue: widget.subject?.description,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Brief description of the subject',
-                  prefixIcon: Icon(Iconsax.document_text),
-                ),
-                maxLines: 3,
-                validator: FormBuilderValidators.compose([
-                  FormBuilderValidators.required(),
-                  FormBuilderValidators.maxLength(500),
-                ]),
+              child: Icon(
+                isEditing ? Iconsax.edit : Iconsax.add,
+                color: AppColors.primary,
+                size: 20,
               ),
-              const SizedBox(height: 16),
-              // Order index is now automatically managed
-              FormBuilderCheckbox(
-                name: 'isActive',
-                initialValue: widget.subject?.isActive ?? true,
-                title: const Text('Active'),
-                subtitle: const Text('Subject will be visible to users'),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Text(isEditing ? 'Edit Subject' : 'Add New Subject'),
+          ],
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _saveSubject,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        content: SizedBox(
+          width: 500,
+          child: FormBuilder(
+            key: _formKey,
+            onChanged: () => _markAsChanged(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FormBuilderTextField(
+                  name: 'name',
+                  initialValue: widget.subject?.name,
+                  decoration: const InputDecoration(
+                    labelText: 'Subject Name',
+                    hintText: 'e.g., Mathematics, Physics',
+                    prefixIcon: Icon(Iconsax.book_1),
                   ),
-                )
-              : Text(isEditing ? 'Update' : 'Add'),
+                  onChanged: (value) => _markAsChanged(),
+                  validator: FormBuilderValidators.compose([
+                    FormBuilderValidators.required(),
+                    FormBuilderValidators.minLength(2),
+                    FormBuilderValidators.maxLength(100),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+                FormBuilderTextField(
+                  name: 'description',
+                  initialValue: widget.subject?.description,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Brief description of the subject',
+                    prefixIcon: Icon(Iconsax.document_text),
+                  ),
+                  maxLines: 3,
+                  onChanged: (value) => _markAsChanged(),
+                  validator: FormBuilderValidators.compose([
+                    FormBuilderValidators.required(),
+                    FormBuilderValidators.maxLength(500),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+                // Order index is now automatically managed
+                FormBuilderCheckbox(
+                  name: 'isActive',
+                  initialValue: widget.subject?.isActive ?? true,
+                  title: const Text('Active'),
+                  subtitle: const Text('Subject will be visible to users'),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (value) => _markAsChanged(),
+                ),
+              ],
+            ),
+          ),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: _isLoading
+                ? null
+                : () async {
+                    if (await _showCancelConfirmation()) {
+                      if (mounted) Navigator.of(context).pop();
+                    }
+                  },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: (_isLoading || (isEditing && !_hasUnsavedChanges))
+                ? null
+                : _saveSubject,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: (isEditing && !_hasUnsavedChanges)
+                  ? AppColors.gray400
+                  : AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(isEditing ? 'Update' : 'Add'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -143,31 +206,34 @@ class _AddSubjectDialogState extends ConsumerState<AddSubjectDialog> {
       final isActive = formData['isActive'] as bool;
 
       if (isEditing) {
-        await ref.read(subjectsProvider(widget.examCategoryId).notifier)
+        await ref
+            .read(subjectsProvider(widget.examCategoryId).notifier)
             .updateSubject(
               id: widget.subject!.id,
               name: name,
               description: description,
-              orderIndex: widget.subject!.orderIndex, // Keep current order index
+              orderIndex:
+                  widget.subject!.orderIndex, // Keep current order index
               isActive: isActive,
             );
       } else {
         // For new subjects, order index is automatic
-        await ref.read(subjectsProvider(widget.examCategoryId).notifier)
+        await ref
+            .read(subjectsProvider(widget.examCategoryId).notifier)
             .addSubject(
               name: name,
               description: description,
               isActive: isActive,
             );
       }
-      
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEditing 
-                  ? 'Subject updated successfully' 
+              isEditing
+                  ? 'Subject updated successfully'
                   : 'Subject added successfully',
             ),
             backgroundColor: AppColors.success,

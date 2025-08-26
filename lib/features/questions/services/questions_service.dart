@@ -328,4 +328,63 @@ class QuestionsService {
       throw Exception('Failed to get random questions: $e');
     }
   }
+
+  // Delete image from Supabase Storage
+  Future<void> deleteImage(String imageUrl, String bucket) async {
+    try {
+      log('Deleting image from bucket: $bucket, URL: $imageUrl');
+
+      // Extract filename from URL
+      final uri = Uri.parse(imageUrl);
+      final pathSegments = uri.pathSegments;
+      final fileName = pathSegments.last;
+
+      await _supabase.storage.from(bucket).remove([fileName]);
+
+      log('Successfully deleted image: $fileName from bucket: $bucket');
+    } catch (e) {
+      log('Error deleting image from bucket $bucket: $e');
+      throw Exception('Failed to delete image: $e');
+    }
+  }
+
+  // Get total questions count across all subjects
+  Future<int> getTotalQuestionsCount() async {
+    try {
+      log('Getting total questions count across all subjects');
+
+      final response = await _supabase
+          .from('questions')
+          .select('id')
+          .eq('is_active', true);
+
+      final count = (response as List).length;
+      log('Found $count total active questions');
+
+      return count;
+    } catch (e) {
+      log('Error getting total questions count: $e');
+      return 0;
+    }
+  }
+
+  // Get total practice tests count across all subjects
+  Future<int> getTotalPracticeTestsCount() async {
+    try {
+      log('Getting total practice tests count across all subjects');
+
+      final response = await _supabase
+          .from('practice_tests')
+          .select('id')
+          .eq('is_active', true);
+
+      final count = (response as List).length;
+      log('Found $count total active practice tests');
+
+      return count;
+    } catch (e) {
+      log('Error getting total practice tests count: $e');
+      return 0;
+    }
+  }
 }

@@ -25,6 +25,7 @@ class AddTopicDialog extends ConsumerStatefulWidget {
 class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
   final _formKey = GlobalKey<FormBuilderState>();
   bool _isLoading = false;
+  bool _hasUnsavedChanges = false;
 
   // File uploads - supporting multiple videos
   List<PlatformFile> _selectedVideos = [];
@@ -32,145 +33,270 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
   bool _isUploadingVideos = false;
   bool _isUploadingNotes = false;
 
+  // Track files to be removed from storage
+  List<String> _videosToRemove = [];
+  String? _notesToRemove;
+
+  // Track current state for editing
+  List<VideoFile> _currentVideos = [];
+  String? _currentNotesUrl;
+  String? _currentNotesFileName;
+
   bool get isEditing => widget.topic != null;
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              isEditing ? Iconsax.edit : Iconsax.add,
-              color: AppColors.primary,
-              size: 20,
-            ),
+  void initState() {
+    super.initState();
+    if (isEditing) {
+      _currentVideos = List.from(widget.topic!.videos);
+      _currentNotesUrl = widget.topic!.notesUrl;
+      _currentNotesFileName = widget.topic!.notesFileName;
+    }
+  }
+
+  void _markAsChanged() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+      print('Topic form marked as changed');
+    }
+  }
+
+  // Remove existing video from topic
+  void _removeExistingVideo(String videoUrl, String fileName) {
+    setState(() {
+      _videosToRemove.add(videoUrl);
+      // Remove from the current videos list
+      _currentVideos.removeWhere((video) => video.url == videoUrl);
+    });
+    _markAsChanged();
+
+    // Show feedback to user
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Video "$fileName" marked for removal. Upload new videos after saving.',
           ),
-          const SizedBox(width: 12),
-          Text(isEditing ? 'Edit Topic' : 'Add New Topic'),
+          backgroundColor: AppColors.warning,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  // Remove existing notes from topic
+  void _removeExistingNotes() {
+    if (_currentNotesUrl != null) {
+      final fileName = _currentNotesFileName ?? 'Notes file';
+      setState(() {
+        _notesToRemove = _currentNotesUrl;
+        _currentNotesUrl = null;
+        _currentNotesFileName = null;
+      });
+      _markAsChanged();
+
+      // Show feedback to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Notes "$fileName" marked for removal. Upload new notes after saving.',
+            ),
+            backgroundColor: AppColors.warning,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> _showCancelConfirmation() async {
+    print('Topic checking for changes: $_hasUnsavedChanges');
+
+    if (!_hasUnsavedChanges) {
+      return true; // No changes, allow immediate cancel
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text(
+          'You have unsaved changes. Are you sure you want to cancel?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Continue Editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Discard Changes'),
+          ),
         ],
       ),
-      content: SizedBox(
-        width: 600,
-        height: 600,
-        child: SingleChildScrollView(
-          child: FormBuilder(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Basic Information
-                Text(
-                  'Basic Information',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gray700,
+    );
+
+    return result ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: _showCancelConfirmation,
+      child: AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isEditing ? Iconsax.edit : Iconsax.add,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(isEditing ? 'Edit Topic' : 'Add New Topic'),
+          ],
+        ),
+        content: SizedBox(
+          width: 600,
+          height: 600,
+          child: SingleChildScrollView(
+            child: FormBuilder(
+              key: _formKey,
+              onChanged: () => _markAsChanged(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Basic Information
+                  Text(
+                    'Basic Information',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.gray700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                FormBuilderTextField(
-                  name: 'name',
-                  initialValue: widget.topic?.name,
-                  decoration: const InputDecoration(
-                    labelText: 'Topic Name',
-                    hintText: 'e.g., Algebra, Trigonometry',
-                    prefixIcon: Icon(Iconsax.document_text),
+                  FormBuilderTextField(
+                    name: 'name',
+                    initialValue: widget.topic?.name,
+                    decoration: const InputDecoration(
+                      labelText: 'Topic Name',
+                      hintText: 'e.g., Algebra, Trigonometry',
+                      prefixIcon: Icon(Iconsax.document_text),
+                    ),
+                    onChanged: (value) => _markAsChanged(),
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(),
+                      FormBuilderValidators.minLength(2),
+                      FormBuilderValidators.maxLength(200),
+                    ]),
                   ),
-                  validator: FormBuilderValidators.compose([
-                    FormBuilderValidators.required(),
-                    FormBuilderValidators.minLength(2),
-                    FormBuilderValidators.maxLength(200),
-                  ]),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                FormBuilderTextField(
-                  name: 'description',
-                  initialValue: widget.topic?.description,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Brief description of the topic',
-                    prefixIcon: Icon(Iconsax.note_text),
+                  FormBuilderTextField(
+                    name: 'description',
+                    initialValue: widget.topic?.description,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Brief description of the topic',
+                      prefixIcon: Icon(Iconsax.note_text),
+                    ),
+                    maxLines: 3,
+                    onChanged: (value) => _markAsChanged(),
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(),
+                      FormBuilderValidators.maxLength(500),
+                    ]),
                   ),
-                  maxLines: 3,
-                  validator: FormBuilderValidators.compose([
-                    FormBuilderValidators.required(),
-                    FormBuilderValidators.maxLength(500),
-                  ]),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Video Section
-                Text(
-                  'Video Content',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gray700,
+                  // Video Section
+                  Text(
+                    'Video Content',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.gray700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                _VideoUploadSection(),
-                const SizedBox(height: 24),
+                  _VideoUploadSection(),
+                  const SizedBox(height: 24),
 
-                // Notes Section
-                Text(
-                  'Notes/Documents',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.gray700,
+                  // Notes Section
+                  Text(
+                    'Notes/Documents',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.gray700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                _NotesUploadSection(),
-                const SizedBox(height: 24),
+                  _NotesUploadSection(),
+                  const SizedBox(height: 24),
 
-                // Active Checkbox
-                FormBuilderCheckbox(
-                  name: 'isActive',
-                  initialValue: widget.topic?.isActive ?? true,
-                  title: const Text('Active'),
-                  subtitle: const Text('Topic will be visible to users'),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
+                  // Active Checkbox
+                  FormBuilderCheckbox(
+                    name: 'isActive',
+                    initialValue: widget.topic?.isActive ?? true,
+                    title: const Text('Active'),
+                    subtitle: const Text('Topic will be visible to users'),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (value) => _markAsChanged(),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _saveTopic,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+        actions: [
+          TextButton(
+            onPressed: _isLoading
+                ? null
+                : () async {
+                    if (await _showCancelConfirmation()) {
+                      if (mounted) Navigator.of(context).pop();
+                    }
+                  },
+            child: const Text('Cancel'),
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Text(isEditing ? 'Update' : 'Add'),
-        ),
-      ],
+          ElevatedButton(
+            onPressed: (_isLoading || (isEditing && !_hasUnsavedChanges))
+                ? null
+                : _saveTopic,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: (isEditing && !_hasUnsavedChanges)
+                  ? AppColors.gray400
+                  : AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(isEditing ? 'Update' : 'Add'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -179,7 +305,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Current videos from existing topic
-        if (isEditing && widget.topic!.videos.isNotEmpty) ...[
+        if (isEditing && _currentVideos.isNotEmpty) ...[
           Text(
             'Current Videos',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -188,7 +314,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
             ),
           ),
           const SizedBox(height: 8),
-          ...widget.topic!.videos
+          ..._currentVideos
               .map(
                 (video) => Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -225,9 +351,8 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () {
-                          // TODO: Handle existing video removal
-                        },
+                        onPressed: () =>
+                            _removeExistingVideo(video.url, video.fileName),
                         child: const Text('Remove'),
                       ),
                     ],
@@ -235,6 +360,61 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                 ),
               )
               .toList(),
+          const SizedBox(height: 16),
+        ],
+
+        // Videos marked for removal
+        if (isEditing && _videosToRemove.isNotEmpty) ...[
+          Text(
+            'Videos Marked for Removal',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.warning,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._videosToRemove.map((videoUrl) {
+            final video = widget.topic!.videos.firstWhere(
+              (v) => v.url == videoUrl,
+            );
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Iconsax.video, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          video.fileName,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                        ),
+                        Text(
+                          'Will be removed when saved',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.warning,
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
           const SizedBox(height: 16),
         ],
 
@@ -291,6 +471,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                         setState(() {
                           _selectedVideos.removeAt(index);
                         });
+                        _markAsChanged();
                       },
                       child: const Text('Remove'),
                     ),
@@ -301,9 +482,12 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
           const SizedBox(height: 16),
         ],
 
-        // Upload button
+        // Upload button - only enabled if no existing videos or after removal
         OutlinedButton.icon(
-          onPressed: (_isUploadingVideos || _selectedVideos.length >= 10)
+          onPressed:
+              (_isUploadingVideos ||
+                  _selectedVideos.length >= 10 ||
+                  (isEditing && _currentVideos.isNotEmpty))
               ? null
               : _pickVideos,
           icon: Icon(
@@ -311,12 +495,20 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
           ),
           label: Text(
             _selectedVideos.isEmpty
-                ? 'Upload Videos (Max 10)'
+                ? (isEditing && _currentVideos.isNotEmpty
+                      ? 'Remove existing videos first'
+                      : 'Upload Videos (Max 10)')
                 : 'Add More Videos',
           ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: BorderSide(color: AppColors.primary),
+            foregroundColor: (isEditing && _currentVideos.isNotEmpty)
+                ? AppColors.gray400
+                : AppColors.primary,
+            side: BorderSide(
+              color: (isEditing && _currentVideos.isNotEmpty)
+                  ? AppColors.gray400
+                  : AppColors.primary,
+            ),
           ),
         ),
 
@@ -330,6 +522,19 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
               ).textTheme.bodySmall?.copyWith(color: AppColors.warning),
             ),
           ),
+
+        // Help text for editing mode
+        if (isEditing && _currentVideos.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Remove existing videos before uploading new ones',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.gray600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -338,7 +543,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.topic?.notesUrl != null) ...[
+        if (_currentNotesUrl != null) ...[
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -362,17 +567,61 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                         ),
                       ),
                       Text(
-                        widget.topic?.notesFileName ?? 'Notes file',
+                        _currentNotesFileName ?? 'Notes file',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    // TODO: Handle notes removal
-                  },
+                  onPressed: _removeExistingNotes,
                   child: const Text('Remove'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
+        // Notes marked for removal
+        if (isEditing && _notesToRemove != null) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Iconsax.document, color: AppColors.warning, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Notes Marked for Removal',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        _currentNotesFileName ?? 'Notes file',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      Text(
+                        'Will be removed when saved',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.warning,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -428,6 +677,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
                       setState(() {
                         _selectedNotes = null;
                       });
+                      _markAsChanged();
                     },
                     child: const Text('Remove'),
                   ),
@@ -438,16 +688,44 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
         ],
 
         OutlinedButton.icon(
-          onPressed: _isUploadingNotes ? null : _pickNotes,
+          onPressed:
+              (_isUploadingNotes || (isEditing && _currentNotesUrl != null))
+              ? null
+              : _pickNotes,
           icon: Icon(
             _isUploadingNotes ? Iconsax.document : Iconsax.document_upload,
           ),
-          label: Text(_selectedNotes != null ? 'Change Notes' : 'Upload Notes'),
+          label: Text(
+            _selectedNotes != null
+                ? 'Change Notes'
+                : (isEditing && _currentNotesUrl != null
+                      ? 'Remove existing notes first'
+                      : 'Upload Notes'),
+          ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: BorderSide(color: AppColors.primary),
+            foregroundColor: (isEditing && _currentNotesUrl != null)
+                ? AppColors.gray400
+                : AppColors.primary,
+            side: BorderSide(
+              color: (isEditing && _currentNotesUrl != null)
+                  ? AppColors.gray400
+                  : AppColors.primary,
+            ),
           ),
         ),
+
+        // Help text for editing mode
+        if (isEditing && _currentNotesUrl != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Remove existing notes before uploading new ones',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.gray600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -488,6 +766,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
 
           _selectedVideos.addAll(validVideos);
         });
+        _markAsChanged();
       }
     } catch (e) {
       if (mounted) {
@@ -521,6 +800,7 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
         setState(() {
           _selectedNotes = result.files.first;
         });
+        _markAsChanged();
       }
     } catch (e) {
       if (mounted) {
@@ -619,10 +899,12 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
       List<VideoFile> videosData = [];
       log('Preparing videos data. Editing mode: $isEditing');
 
-      // Keep existing videos if editing
+      // Keep existing videos if editing (excluding removed ones)
       if (isEditing) {
-        videosData = List<VideoFile>.from(widget.topic!.videos);
-        log('Keeping ${videosData.length} existing videos');
+        videosData = List<VideoFile>.from(_currentVideos);
+        log(
+          'Keeping ${videosData.length} existing videos (${_videosToRemove.length} marked for removal)',
+        );
       }
 
       // Upload new video files and add to videos data
@@ -679,9 +961,9 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
           rethrow; // Re-throw to stop the process
         }
       } else if (isEditing) {
-        // Keep existing notes if no new notes selected
-        notesUrl = widget.topic!.notesUrl;
-        notesFileName = widget.topic!.notesFileName;
+        // Keep existing notes if no new notes selected and not marked for removal
+        notesUrl = _currentNotesUrl;
+        notesFileName = _currentNotesFileName;
         log('Keeping existing notes: $notesUrl');
       } else {
         // For new topics, ensure notes fields are null if no notes selected
@@ -739,6 +1021,38 @@ class _AddTopicDialogState extends ConsumerState<AddTopicDialog> {
               notesFileName: notesFileName,
               isActive: finalIsActive,
             );
+      }
+
+      // Delete removed files from storage
+      if (isEditing && (_videosToRemove.isNotEmpty || _notesToRemove != null)) {
+        log('Deleting removed files from storage');
+
+        try {
+          // Delete removed videos
+          for (final videoUrl in _videosToRemove) {
+            await topicsService.deleteFile(
+              bucket: AppConstants.videosBucket,
+              path: videoUrl,
+            );
+            log('Deleted video: $videoUrl');
+          }
+
+          // Delete removed notes
+          if (_notesToRemove != null) {
+            await topicsService.deleteFile(
+              bucket: AppConstants.notesBucket,
+              path: _notesToRemove!,
+            );
+            log('Deleted notes: $_notesToRemove');
+          }
+
+          log(
+            'Successfully deleted ${_videosToRemove.length} videos and ${_notesToRemove != null ? 1 : 0} notes',
+          );
+        } catch (e) {
+          log('Warning: Failed to delete some files from storage: $e');
+          // Don't fail the entire operation if file deletion fails
+        }
       }
 
       if (mounted) {

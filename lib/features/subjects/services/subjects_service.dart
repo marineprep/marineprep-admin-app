@@ -323,4 +323,44 @@ class SubjectsService {
       throw Exception('Failed to move subject to position: $e');
     }
   }
+
+  // Get total subjects count across all exam categories
+  Future<int> getTotalSubjectsCount() async {
+    try {
+      log('Getting total subjects count across all exam categories');
+
+      final response = await _supabase
+          .from('subjects')
+          .select('id')
+          .eq('is_active', true);
+
+      final count = (response as List).length;
+      log('Found $count total active subjects');
+
+      return count;
+    } catch (e) {
+      log('Error getting total subjects count: $e');
+      return 0;
+    }
+  }
+
+  // Get total topics count across all subjects
+  Future<int> getTotalTopicsCount() async {
+    try {
+      log('Getting total topics count across all subjects');
+
+      final response = await _supabase
+          .from('topics')
+          .select('id')
+          .eq('is_active', true);
+
+      final count = (response as List).length;
+      log('Found $count total active topics');
+
+      return count;
+    } catch (e) {
+      log('Error getting total topics count: $e');
+      return 0;
+    }
+  }
 }

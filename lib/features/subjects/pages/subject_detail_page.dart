@@ -118,15 +118,6 @@ class _SubjectDetailPageState extends ConsumerState<SubjectDetailPage> {
                         ],
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddTopicDialog(context, ref),
-                      icon: const Icon(Iconsax.add),
-                      label: const Text('Add Topic'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 32),
