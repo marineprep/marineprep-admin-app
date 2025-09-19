@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -305,20 +304,97 @@ class _TopicsList extends ConsumerWidget {
             return Padding(
               key: ValueKey(topic.id),
               padding: const EdgeInsets.only(bottom: 12),
-              child: _TopicCard(topic: topic, subjectId: subjectId),
+              child: _TopicCard(
+                topic: topic,
+                subjectId: subjectId,
+                isFirst: index == 0,
+                isLast: index == filteredTopics.length - 1,
+                onMoveUp: () => _moveTopicUp(context, ref, topic.id, subjectId),
+                onMoveDown: () =>
+                    _moveTopicDown(context, ref, topic.id, subjectId),
+              ),
             );
           },
         );
       },
     );
   }
+
+  Future<void> _moveTopicUp(
+    BuildContext context,
+    WidgetRef ref,
+    String topicId,
+    String subjectId,
+  ) async {
+    try {
+      await ref.read(topicsProvider(subjectId).notifier).moveTopicUp(topicId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Topic moved up successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error moving topic: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _moveTopicDown(
+    BuildContext context,
+    WidgetRef ref,
+    String topicId,
+    String subjectId,
+  ) async {
+    try {
+      await ref.read(topicsProvider(subjectId).notifier).moveTopicDown(topicId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Topic moved down successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error moving topic: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 }
 
 class _TopicCard extends ConsumerWidget {
   final Topic topic;
   final String subjectId;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onMoveUp;
+  final VoidCallback onMoveDown;
 
-  const _TopicCard({required this.topic, required this.subjectId});
+  const _TopicCard({
+    required this.topic,
+    required this.subjectId,
+    required this.isFirst,
+    required this.isLast,
+    required this.onMoveUp,
+    required this.onMoveDown,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -419,6 +495,44 @@ class _TopicCard extends ConsumerWidget {
                     ],
                   ),
                 ),
+
+                // Reordering buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: isFirst ? null : onMoveUp,
+                      icon: const Icon(Icons.arrow_circle_up_rounded, size: 30),
+                      tooltip: 'Move up',
+                      style: IconButton.styleFrom(
+                        backgroundColor: isFirst
+                            ? AppColors.gray100
+                            : AppColors.primary.withOpacity(0.1),
+                        foregroundColor: isFirst
+                            ? AppColors.gray400
+                            : AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: isLast ? null : onMoveDown,
+                      icon: const Icon(
+                        Icons.arrow_circle_down_rounded,
+                        size: 30,
+                      ),
+                      tooltip: 'Move down',
+                      style: IconButton.styleFrom(
+                        backgroundColor: isLast
+                            ? AppColors.gray100
+                            : AppColors.primary.withOpacity(0.1),
+                        foregroundColor: isLast
+                            ? AppColors.gray400
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
 
                 // Action buttons
                 PopupMenuButton<String>(

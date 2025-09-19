@@ -237,12 +237,80 @@ class _SubjectsGrid extends ConsumerWidget {
                 topicsCount: topicsCount,
                 examCategoryId: examCategoryId,
                 position: index + 1,
+                isFirst: index == 0,
+                isLast: index == filteredSubjects.length - 1,
+                onMoveUp: () =>
+                    _moveSubjectUp(context, ref, subject.id, examCategoryId),
+                onMoveDown: () =>
+                    _moveSubjectDown(context, ref, subject.id, examCategoryId),
               ),
             );
           },
         );
       },
     );
+  }
+
+  Future<void> _moveSubjectUp(
+    BuildContext context,
+    WidgetRef ref,
+    String subjectId,
+    String examCategoryId,
+  ) async {
+    try {
+      await ref
+          .read(subjectsProvider(examCategoryId).notifier)
+          .moveSubjectUp(subjectId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subject moved up successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error moving subject: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _moveSubjectDown(
+    BuildContext context,
+    WidgetRef ref,
+    String subjectId,
+    String examCategoryId,
+  ) async {
+    try {
+      await ref
+          .read(subjectsProvider(examCategoryId).notifier)
+          .moveSubjectDown(subjectId);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subject moved down successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error moving subject: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -251,12 +319,20 @@ class _SubjectCard extends ConsumerWidget {
   final int topicsCount;
   final String examCategoryId;
   final int position;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onMoveUp;
+  final VoidCallback onMoveDown;
 
   const _SubjectCard({
     required this.subject,
     required this.topicsCount,
     required this.examCategoryId,
     required this.position,
+    required this.isFirst,
+    required this.isLast,
+    required this.onMoveUp,
+    required this.onMoveDown,
   });
 
   @override
@@ -344,6 +420,46 @@ class _SubjectCard extends ConsumerWidget {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Reordering buttons
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: isFirst ? null : onMoveUp,
+                        icon: const Icon(
+                          Icons.arrow_circle_up_rounded,
+                          size: 30,
+                        ),
+                        tooltip: 'Move up',
+                        style: IconButton.styleFrom(
+                          backgroundColor: isFirst
+                              ? AppColors.gray100
+                              : AppColors.primary.withOpacity(0.1),
+                          foregroundColor: isFirst
+                              ? AppColors.gray400
+                              : AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: isLast ? null : onMoveDown,
+                        icon: const Icon(
+                          Icons.arrow_circle_down_rounded,
+                          size: 30,
+                        ),
+                        tooltip: 'Move down',
+                        style: IconButton.styleFrom(
+                          backgroundColor: isLast
+                              ? AppColors.gray100
+                              : AppColors.primary.withOpacity(0.1),
+                          foregroundColor: isLast
+                              ? AppColors.gray400
+                              : AppColors.primary,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 8),
                   PopupMenuButton<String>(

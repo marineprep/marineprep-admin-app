@@ -233,4 +233,44 @@ class SubjectsNotifier
       rethrow;
     }
   }
+
+  // Move subject up by one position
+  Future<void> moveSubjectUp(String subjectId) async {
+    try {
+      if (_examCategoryId == null) {
+        throw Exception('Exam category ID not resolved');
+      }
+
+      log('Moving subject $subjectId up');
+
+      await _service.moveSubjectUp(subjectId, _examCategoryId!);
+
+      // Reload to update the UI with the new order
+      await loadSubjects();
+      log('Successfully moved subject up');
+    } catch (error) {
+      log('Error moving subject up: $error');
+      rethrow;
+    }
+  }
+
+  // Move subject down by one position
+  Future<void> moveSubjectDown(String subjectId) async {
+    try {
+      if (_examCategoryId == null) {
+        throw Exception('Exam category ID not resolved');
+      }
+
+      log('Moving subject $subjectId down');
+
+      await _service.moveSubjectDown(subjectId, _examCategoryId!);
+
+      // Reload to update the UI with the new order
+      await loadSubjects();
+      log('Successfully moved subject down');
+    } catch (error) {
+      log('Error moving subject down: $error');
+      rethrow;
+    }
+  }
 }

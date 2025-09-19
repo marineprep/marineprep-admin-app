@@ -271,7 +271,7 @@ class SubjectsService {
         throw Exception('Subject not found');
       }
 
-      // Get all subjects
+      // Get all subjects ordered by current order_index
       final subjects = await getSubjects(examCategoryId);
 
       if (newPosition < 1 || newPosition > subjects.length) {
@@ -291,36 +291,133 @@ class SubjectsService {
         'Moving subject from position $currentPosition to position $newPosition',
       );
 
-      // Create a new list with the subject moved to the new position
-      final updatedSubjects = <Map<String, dynamic>>[];
+      // Remove the subject from its current position
+      final subjectsList = subjects.toList();
+      subjectsList.removeWhere((s) => s.id == subjectId);
 
-      // Add subjects before the new position
-      for (int i = 1; i < newPosition; i++) {
-        final subject = subjects.firstWhere((s) => s.orderIndex == i);
-        updatedSubjects.add({'id': subject.id, 'order_index': i});
-      }
+      // Insert the subject at the new position (0-based index)
+      final insertIndex = newPosition - 1;
+      subjectsList.insert(insertIndex, currentSubject);
 
-      // Add the moved subject at the new position
-      updatedSubjects.add({'id': subjectId, 'order_index': newPosition});
+      // Update all subjects with new sequential order indices
+      for (int i = 0; i < subjectsList.length; i++) {
+        final subject = subjectsList[i];
+        final newOrderIndex = i + 1;
 
-      // Add subjects after the new position, shifting their order
-      for (int i = newPosition + 1; i <= subjects.length; i++) {
-        final subject = subjects.firstWhere((s) => s.orderIndex == i - 1);
-        updatedSubjects.add({'id': subject.id, 'order_index': i});
-      }
+        if (subject.orderIndex != newOrderIndex) {
+          log(
+            'Updating subject ${subject.name} order from ${subject.orderIndex} to $newOrderIndex',
+          );
 
-      // Update all subjects in a single transaction
-      for (final update in updatedSubjects) {
-        await _supabase
-            .from('subjects')
-            .update({'order_index': update['order_index']})
-            .eq('id', update['id']);
+          await _supabase
+              .from('subjects')
+              .update({'order_index': newOrderIndex})
+              .eq('id', subject.id);
+        }
       }
 
       log('Successfully moved subject to position $newPosition');
     } catch (e) {
       log('Error moving subject to position: $e');
       throw Exception('Failed to move subject to position: $e');
+    }
+  }
+
+  // Move subject up by one position
+  Future<void> moveSubjectUp(String subjectId, String examCategoryId) async {
+    try {
+      log('Moving subject $subjectId up');
+
+      // Get current subject
+      final currentSubject = await getSubjectById(subjectId);
+      if (currentSubject == null) {
+        throw Exception('Subject not found');
+      }
+
+      // Get all subjects ordered by current order_index
+      final subjects = await getSubjects(examCategoryId);
+
+      final currentPosition = currentSubject.orderIndex;
+
+      if (currentPosition <= 1) {
+        log('Subject is already at the top position');
+        return;
+      }
+
+      // Find the subject that should be swapped
+      final subjectToSwap = subjects.firstWhere(
+        (s) => s.orderIndex == currentPosition - 1,
+        orElse: () => throw Exception('Subject to swap not found'),
+      );
+
+      log(
+        'Swapping subject ${currentSubject.name} (position $currentPosition) with ${subjectToSwap.name} (position ${subjectToSwap.orderIndex})',
+      );
+
+      // Swap the order indices
+      await _supabase
+          .from('subjects')
+          .update({'order_index': currentPosition - 1})
+          .eq('id', subjectId);
+
+      await _supabase
+          .from('subjects')
+          .update({'order_index': currentPosition})
+          .eq('id', subjectToSwap.id);
+
+      log('Successfully moved subject up');
+    } catch (e) {
+      log('Error moving subject up: $e');
+      throw Exception('Failed to move subject up: $e');
+    }
+  }
+
+  // Move subject down by one position
+  Future<void> moveSubjectDown(String subjectId, String examCategoryId) async {
+    try {
+      log('Moving subject $subjectId down');
+
+      // Get current subject
+      final currentSubject = await getSubjectById(subjectId);
+      if (currentSubject == null) {
+        throw Exception('Subject not found');
+      }
+
+      // Get all subjects ordered by current order_index
+      final subjects = await getSubjects(examCategoryId);
+
+      final currentPosition = currentSubject.orderIndex;
+
+      if (currentPosition >= subjects.length) {
+        log('Subject is already at the bottom position');
+        return;
+      }
+
+      // Find the subject that should be swapped
+      final subjectToSwap = subjects.firstWhere(
+        (s) => s.orderIndex == currentPosition + 1,
+        orElse: () => throw Exception('Subject to swap not found'),
+      );
+
+      log(
+        'Swapping subject ${currentSubject.name} (position $currentPosition) with ${subjectToSwap.name} (position ${subjectToSwap.orderIndex})',
+      );
+
+      // Swap the order indices
+      await _supabase
+          .from('subjects')
+          .update({'order_index': currentPosition + 1})
+          .eq('id', subjectId);
+
+      await _supabase
+          .from('subjects')
+          .update({'order_index': currentPosition})
+          .eq('id', subjectToSwap.id);
+
+      log('Successfully moved subject down');
+    } catch (e) {
+      log('Error moving subject down: $e');
+      throw Exception('Failed to move subject down: $e');
     }
   }
 

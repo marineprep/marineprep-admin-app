@@ -186,4 +186,36 @@ class TopicsNotifier extends StateNotifier<AsyncValue<List<Topic>>> {
       rethrow;
     }
   }
+
+  // Move topic up by one position
+  Future<void> moveTopicUp(String topicId) async {
+    try {
+      log('Moving topic $topicId up');
+
+      await _service.moveTopicUp(topicId, _subjectId);
+
+      // Reload to update the UI with the new order
+      await loadTopics();
+      log('Successfully moved topic up');
+    } catch (error) {
+      log('Error moving topic up: $error');
+      rethrow;
+    }
+  }
+
+  // Move topic down by one position
+  Future<void> moveTopicDown(String topicId) async {
+    try {
+      log('Moving topic $topicId down');
+
+      await _service.moveTopicDown(topicId, _subjectId);
+
+      // Reload to update the UI with the new order
+      await loadTopics();
+      log('Successfully moved topic down');
+    } catch (error) {
+      log('Error moving topic down: $error');
+      rethrow;
+    }
+  }
 }

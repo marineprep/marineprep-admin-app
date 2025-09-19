@@ -389,7 +389,7 @@ class TopicsService {
         throw Exception('Topic not found');
       }
 
-      // Get all topics
+      // Get all topics ordered by current order_index
       final topics = await getTopics(subjectId);
 
       if (newPosition < 1 || newPosition > topics.length) {
@@ -409,36 +409,133 @@ class TopicsService {
         'Moving topic from position $currentPosition to position $newPosition',
       );
 
-      // Create a new list with the topic moved to the new position
-      final updatedTopics = <Map<String, dynamic>>[];
+      // Remove the topic from its current position
+      final topicsList = topics.toList();
+      topicsList.removeWhere((t) => t.id == topicId);
 
-      // Add topics before the new position
-      for (int i = 1; i < newPosition; i++) {
-        final topic = topics.firstWhere((t) => t.orderIndex == i);
-        updatedTopics.add({'id': topic.id, 'order_index': i});
-      }
+      // Insert the topic at the new position (0-based index)
+      final insertIndex = newPosition - 1;
+      topicsList.insert(insertIndex, currentTopic);
 
-      // Add the moved topic at the new position
-      updatedTopics.add({'id': topicId, 'order_index': newPosition});
+      // Update all topics with new sequential order indices
+      for (int i = 0; i < topicsList.length; i++) {
+        final topic = topicsList[i];
+        final newOrderIndex = i + 1;
 
-      // Add topics after the new position, shifting their order
-      for (int i = newPosition + 1; i <= topics.length; i++) {
-        final topic = topics.firstWhere((t) => t.orderIndex == i - 1);
-        updatedTopics.add({'id': topic.id, 'order_index': i});
-      }
+        if (topic.orderIndex != newOrderIndex) {
+          log(
+            'Updating topic ${topic.name} order from ${topic.orderIndex} to $newOrderIndex',
+          );
 
-      // Update all topics in a single transaction
-      for (final update in updatedTopics) {
-        await _supabase
-            .from('topics')
-            .update({'order_index': update['order_index']})
-            .eq('id', update['id']);
+          await _supabase
+              .from('topics')
+              .update({'order_index': newOrderIndex})
+              .eq('id', topic.id);
+        }
       }
 
       log('Successfully moved topic to position $newPosition');
     } catch (e) {
       log('Error moving topic to position: $e');
       throw Exception('Failed to move topic to position: $e');
+    }
+  }
+
+  // Move topic up by one position
+  Future<void> moveTopicUp(String topicId, String subjectId) async {
+    try {
+      log('Moving topic $topicId up');
+
+      // Get current topic
+      final currentTopic = await getTopicById(topicId);
+      if (currentTopic == null) {
+        throw Exception('Topic not found');
+      }
+
+      // Get all topics ordered by current order_index
+      final topics = await getTopics(subjectId);
+
+      final currentPosition = currentTopic.orderIndex;
+
+      if (currentPosition <= 1) {
+        log('Topic is already at the top position');
+        return;
+      }
+
+      // Find the topic that should be swapped
+      final topicToSwap = topics.firstWhere(
+        (t) => t.orderIndex == currentPosition - 1,
+        orElse: () => throw Exception('Topic to swap not found'),
+      );
+
+      log(
+        'Swapping topic ${currentTopic.name} (position $currentPosition) with ${topicToSwap.name} (position ${topicToSwap.orderIndex})',
+      );
+
+      // Swap the order indices
+      await _supabase
+          .from('topics')
+          .update({'order_index': currentPosition - 1})
+          .eq('id', topicId);
+
+      await _supabase
+          .from('topics')
+          .update({'order_index': currentPosition})
+          .eq('id', topicToSwap.id);
+
+      log('Successfully moved topic up');
+    } catch (e) {
+      log('Error moving topic up: $e');
+      throw Exception('Failed to move topic up: $e');
+    }
+  }
+
+  // Move topic down by one position
+  Future<void> moveTopicDown(String topicId, String subjectId) async {
+    try {
+      log('Moving topic $topicId down');
+
+      // Get current topic
+      final currentTopic = await getTopicById(topicId);
+      if (currentTopic == null) {
+        throw Exception('Topic not found');
+      }
+
+      // Get all topics ordered by current order_index
+      final topics = await getTopics(subjectId);
+
+      final currentPosition = currentTopic.orderIndex;
+
+      if (currentPosition >= topics.length) {
+        log('Topic is already at the bottom position');
+        return;
+      }
+
+      // Find the topic that should be swapped
+      final topicToSwap = topics.firstWhere(
+        (t) => t.orderIndex == currentPosition + 1,
+        orElse: () => throw Exception('Topic to swap not found'),
+      );
+
+      log(
+        'Swapping topic ${currentTopic.name} (position $currentPosition) with ${topicToSwap.name} (position ${topicToSwap.orderIndex})',
+      );
+
+      // Swap the order indices
+      await _supabase
+          .from('topics')
+          .update({'order_index': currentPosition + 1})
+          .eq('id', topicId);
+
+      await _supabase
+          .from('topics')
+          .update({'order_index': currentPosition})
+          .eq('id', topicToSwap.id);
+
+      log('Successfully moved topic down');
+    } catch (e) {
+      log('Error moving topic down: $e');
+      throw Exception('Failed to move topic down: $e');
     }
   }
 }
