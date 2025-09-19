@@ -279,36 +279,53 @@ class _QuestionsList extends ConsumerWidget {
           children: [
             // Stats
             statsAsync.when(
-              data: (stats) => Row(
-                children: [
-                  _StatChip(
-                    icon: Iconsax.task_square,
-                    label: 'Total Questions',
-                    value: '${stats['total']}',
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 16),
-                  _StatChip(
-                    icon: Iconsax.flash,
-                    label: 'Easy',
-                    value: '${stats['easy']}',
-                    color: AppColors.success,
-                  ),
-                  const SizedBox(width: 16),
-                  _StatChip(
-                    icon: Iconsax.flash_1,
-                    label: 'Medium',
-                    value: '${stats['medium']}',
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: 16),
-                  _StatChip(
-                    icon: Iconsax.flash_circle,
-                    label: 'Hard',
-                    value: '${stats['hard']}',
-                    color: AppColors.error,
-                  ),
-                ],
+              data: (stats) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _StatChip(
+                      icon: Iconsax.task_square,
+                      label: 'Total Questions',
+                      value: '${stats['total']}',
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    _StatChip(
+                      icon: Iconsax.flash,
+                      label: 'Very Easy',
+                      value: '${stats['very_easy'] ?? 0}',
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 12),
+                    _StatChip(
+                      icon: Iconsax.flash_1,
+                      label: 'Easy',
+                      value: '${stats['easy'] ?? 0}',
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 12),
+                    _StatChip(
+                      icon: Iconsax.flash_circle,
+                      label: 'Medium',
+                      value: '${stats['medium'] ?? 0}',
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 12),
+                    _StatChip(
+                      icon: Iconsax.flash_circle_1,
+                      label: 'Hard',
+                      value: '${stats['hard'] ?? 0}',
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(width: 12),
+                    _StatChip(
+                      icon: Iconsax.flash_circle,
+                      label: 'Very Hard',
+                      value: '${stats['very_hard'] ?? 0}',
+                      color: AppColors.error,
+                    ),
+                  ],
+                ),
               ),
               loading: () => const SizedBox(height: 40),
               error: (error, stack) => const SizedBox(height: 40),
@@ -652,11 +669,13 @@ class _QuestionCard extends ConsumerWidget {
   Color _getDifficultyColor(int level) {
     switch (level) {
       case 1:
+        return AppColors.success;
       case 2:
         return AppColors.success;
       case 3:
         return AppColors.warning;
       case 4:
+        return AppColors.error;
       case 5:
         return AppColors.error;
       default:
@@ -667,13 +686,15 @@ class _QuestionCard extends ConsumerWidget {
   String _getDifficultyLabel(int level) {
     switch (level) {
       case 1:
+        return 'Very Easy';
       case 2:
         return 'Easy';
       case 3:
         return 'Medium';
       case 4:
-      case 5:
         return 'Hard';
+      case 5:
+        return 'Very Hard';
       default:
         return 'Unknown';
     }

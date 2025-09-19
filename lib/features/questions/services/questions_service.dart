@@ -289,9 +289,31 @@ class QuestionsService {
 
       final stats = {
         'total': questions.length,
-        'easy': questions.where((q) => q['difficulty_level'] <= 2).length,
-        'medium': questions.where((q) => q['difficulty_level'] == 3).length,
-        'hard': questions.where((q) => q['difficulty_level'] >= 4).length,
+        'very_easy': questions
+            .where(
+              (q) => q['difficulty_level'] == 1 || q['difficulty_level'] == '1',
+            )
+            .length,
+        'easy': questions
+            .where(
+              (q) => q['difficulty_level'] == 2 || q['difficulty_level'] == '2',
+            )
+            .length,
+        'medium': questions
+            .where(
+              (q) => q['difficulty_level'] == 3 || q['difficulty_level'] == '3',
+            )
+            .length,
+        'hard': questions
+            .where(
+              (q) => q['difficulty_level'] == 4 || q['difficulty_level'] == '4',
+            )
+            .length,
+        'very_hard': questions
+            .where(
+              (q) => q['difficulty_level'] == 5 || q['difficulty_level'] == '5',
+            )
+            .length,
       };
 
       log('Questions stats for subject ID $subjectId: $stats');
@@ -299,7 +321,14 @@ class QuestionsService {
       return stats;
     } catch (e) {
       log('Error getting questions stats for subject ID $subjectId: $e');
-      return {'total': 0, 'easy': 0, 'medium': 0, 'hard': 0};
+      return {
+        'total': 0,
+        'very_easy': 0,
+        'easy': 0,
+        'medium': 0,
+        'hard': 0,
+        'very_hard': 0,
+      };
     }
   }
 
