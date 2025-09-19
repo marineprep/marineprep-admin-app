@@ -45,9 +45,13 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   PlatformFile? _questionImage;
   PlatformFile? _explanationImage;
 
+  // Answer choice images
+  final List<PlatformFile?> _choiceImages = [null, null, null, null];
+
   // Track images to be removed from storage
   String? _questionImageToRemove;
   String? _explanationImageToRemove;
+  final List<String?> _choiceImagesToRemove = [null, null, null, null];
 
   bool get isEditing => widget.question != null;
 
@@ -120,6 +124,33 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
           SnackBar(
             content: const Text(
               'Explanation image marked for removal. Upload new image after saving.',
+            ),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  // Remove existing choice image
+  void _removeExistingChoiceImage(int index) {
+    if (widget.question != null &&
+        index < widget.question!.answerChoices.length &&
+        widget.question!.answerChoices[index].imageUrl != null) {
+      setState(() {
+        _choiceImagesToRemove[index] =
+            widget.question!.answerChoices[index].imageUrl;
+        _choiceImages[index] = null;
+        _markAsChanged();
+      });
+
+      // Show feedback to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Choice ${String.fromCharCode(65 + index)} image marked for removal. Upload new image after saving.',
             ),
             backgroundColor: AppColors.warning,
             duration: Duration(seconds: 3),
@@ -263,43 +294,76 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                   ...List.generate(4, (index) {
                     final label = String.fromCharCode(65 + index); // A, B, C, D
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Text(
-                                label,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    label,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _choiceControllers[index],
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter choice $label',
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  onChanged: (value) => _markAsChanged(),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Please enter choice $label';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _choiceControllers[index],
-                              decoration: InputDecoration(
-                                hintText: 'Enter choice $label',
-                                border: const OutlineInputBorder(),
-                              ),
-                              onChanged: (value) => _markAsChanged(),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter choice $label';
-                                }
-                                return null;
-                              },
-                            ),
+                          const SizedBox(height: 8),
+                          // Choice Image Section
+                          _ChoiceImageSection(
+                            title: 'Choice $label Image (Optional)',
+                            file: _choiceImages[index],
+                            existingImageUrl:
+                                widget.question != null &&
+                                    index <
+                                        widget.question!.answerChoices.length
+                                ? widget.question!.answerChoices[index].imageUrl
+                                : null,
+                            onFilePicked: (file) {
+                              setState(() {
+                                _choiceImages[index] = file;
+                              });
+                              _markAsChanged();
+                            },
+                            onFileRemoved: () {
+                              setState(() {
+                                _choiceImages[index] = null;
+                              });
+                              _markAsChanged();
+                            },
+                            onExistingImageRemoved: () =>
+                                _removeExistingChoiceImage(index),
                           ),
                         ],
                       ),
@@ -480,56 +544,7 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       // Upload images to Supabase Storage if provided
       String? questionImageUrl;
       String? explanationImageUrl;
-
-      if (_questionImage != null) {
-        final questionsNotifier = ref.read(
-          questionsProvider(
-            QuestionsFilter(
-              subjectId: widget.subjectId,
-              sectionType: widget.sectionType,
-            ),
-          ).notifier,
-        );
-
-        questionImageUrl = await questionsNotifier.uploadImage(
-          _questionImage!.bytes!,
-          _questionImage!.name,
-          'images',
-        );
-      } else if (isEditing && widget.question!.questionImageUrl != null) {
-        questionImageUrl = widget.question!.questionImageUrl;
-      }
-
-      if (_explanationImage != null) {
-        final questionsNotifier = ref.read(
-          questionsProvider(
-            QuestionsFilter(
-              subjectId: widget.subjectId,
-              topicId: widget.topicId,
-              sectionType: widget.sectionType,
-            ),
-          ).notifier,
-        );
-
-        explanationImageUrl = await questionsNotifier.uploadImage(
-          _explanationImage!.bytes!,
-          _explanationImage!.name,
-          'images',
-        );
-      } else if (isEditing && widget.question!.explanationImageUrl != null) {
-        explanationImageUrl = widget.question!.explanationImageUrl;
-      }
-
-      // Create answer choices
-      final answerChoices = <AnswerChoice>[];
-      for (int i = 0; i < 4; i++) {
-        answerChoices.add(
-          AnswerChoice(
-            label: String.fromCharCode(65 + i), // A, B, C, D
-            text: _choiceControllers[i].text.trim(),
-          ),
-        );
-      }
+      List<String?> choiceImageUrls = [null, null, null, null];
 
       final questionsNotifier = ref.read(
         questionsProvider(
@@ -540,6 +555,53 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
           ),
         ).notifier,
       );
+
+      if (_questionImage != null) {
+        questionImageUrl = await questionsNotifier.uploadImage(
+          _questionImage!.bytes!,
+          _questionImage!.name,
+          'images',
+        );
+      } else if (isEditing && widget.question!.questionImageUrl != null) {
+        questionImageUrl = widget.question!.questionImageUrl;
+      }
+
+      if (_explanationImage != null) {
+        explanationImageUrl = await questionsNotifier.uploadImage(
+          _explanationImage!.bytes!,
+          _explanationImage!.name,
+          'images',
+        );
+      } else if (isEditing && widget.question!.explanationImageUrl != null) {
+        explanationImageUrl = widget.question!.explanationImageUrl;
+      }
+
+      // Upload choice images
+      for (int i = 0; i < 4; i++) {
+        if (_choiceImages[i] != null) {
+          choiceImageUrls[i] = await questionsNotifier.uploadImage(
+            _choiceImages[i]!.bytes!,
+            _choiceImages[i]!.name,
+            'images',
+          );
+        } else if (isEditing &&
+            i < widget.question!.answerChoices.length &&
+            widget.question!.answerChoices[i].imageUrl != null) {
+          choiceImageUrls[i] = widget.question!.answerChoices[i].imageUrl;
+        }
+      }
+
+      // Create answer choices
+      final answerChoices = <AnswerChoice>[];
+      for (int i = 0; i < 4; i++) {
+        answerChoices.add(
+          AnswerChoice(
+            label: String.fromCharCode(65 + i), // A, B, C, D
+            text: _choiceControllers[i].text.trim(),
+            imageUrl: choiceImageUrls[i],
+          ),
+        );
+      }
 
       if (isEditing) {
         // Update existing question
@@ -575,7 +637,8 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       // Delete removed images from storage
       if (isEditing &&
           (_questionImageToRemove != null ||
-              _explanationImageToRemove != null)) {
+              _explanationImageToRemove != null ||
+              _choiceImagesToRemove.any((img) => img != null))) {
         log('Deleting removed images from storage');
 
         try {
@@ -599,8 +662,23 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
             log('Deleted explanation image: $_explanationImageToRemove');
           }
 
+          // Delete removed choice images
+          int deletedChoiceImages = 0;
+          for (int i = 0; i < 4; i++) {
+            if (_choiceImagesToRemove[i] != null) {
+              await questionsService.deleteImage(
+                _choiceImagesToRemove[i]!,
+                'images',
+              );
+              log(
+                'Deleted choice ${String.fromCharCode(65 + i)} image: ${_choiceImagesToRemove[i]}',
+              );
+              deletedChoiceImages++;
+            }
+          }
+
           log(
-            'Successfully deleted ${_questionImageToRemove != null ? 1 : 0} question images and ${_explanationImageToRemove != null ? 1 : 0} explanation images',
+            'Successfully deleted ${_questionImageToRemove != null ? 1 : 0} question images, ${_explanationImageToRemove != null ? 1 : 0} explanation images, and $deletedChoiceImages choice images',
           );
         } catch (e) {
           log('Warning: Failed to delete some images from storage: $e');
@@ -784,6 +862,200 @@ class _QuestionImageSection extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.gray600,
                 fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        onFilePicked(result.files.first);
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _ChoiceImageSection extends StatelessWidget {
+  final String title;
+  final PlatformFile? file;
+  final String? existingImageUrl;
+  final Function(PlatformFile) onFilePicked;
+  final VoidCallback onFileRemoved;
+  final VoidCallback onExistingImageRemoved;
+
+  const _ChoiceImageSection({
+    required this.title,
+    required this.file,
+    this.existingImageUrl,
+    required this.onFilePicked,
+    required this.onFileRemoved,
+    required this.onExistingImageRemoved,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppColors.gray600,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // Show existing image if available
+        if (existingImageUrl != null && file == null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.gray400.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.gray400.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Iconsax.image, color: AppColors.gray400, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Current Image',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.gray400,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Image attached',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: onExistingImageRemoved,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Remove', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        if (file != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.success.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.success.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Iconsax.image, color: AppColors.success, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        file!.name,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
+                        _formatFileSize(file!.size),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.gray600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: onFileRemoved,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Remove', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+
+        OutlinedButton.icon(
+          onPressed: (existingImageUrl != null && file == null)
+              ? null
+              : _pickImage,
+          icon: const Icon(Iconsax.image, size: 16),
+          label: Text(
+            file != null
+                ? 'Change Image'
+                : (existingImageUrl != null
+                      ? 'Remove existing image first'
+                      : 'Upload Image'),
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: (existingImageUrl != null && file == null)
+                ? AppColors.gray400
+                : AppColors.primary,
+            side: BorderSide(
+              color: (existingImageUrl != null && file == null)
+                  ? AppColors.gray400
+                  : AppColors.primary,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+
+        // Help text for editing mode
+        if (existingImageUrl != null && file == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Remove existing image before uploading a new one',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.gray600,
+                fontStyle: FontStyle.italic,
+                fontSize: 10,
               ),
             ),
           ),

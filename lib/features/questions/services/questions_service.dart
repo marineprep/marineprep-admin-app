@@ -33,11 +33,25 @@ class QuestionsService {
 
       final response = await queryBuilder.order('created_at', ascending: false);
 
-      final questions = (response as List)
-          .map((json) => Question.fromJson(json))
-          .toList();
+      log('Response type: ${response.runtimeType}');
+      log('Response length: ${(response as List).length}');
+      log(
+        'Raw response from Supabase: ${response.toString().length > 200 ? response.toString().substring(0, 200) + "..." : response.toString()}',
+      );
 
-      log('Fetched ${questions.length} questions for subject ID: $subjectId');
+      final questions = (response as List).map((json) {
+        try {
+          return Question.fromJson(json);
+        } catch (e) {
+          log('Error parsing question JSON: $e');
+          log('Problematic JSON: $json');
+          rethrow;
+        }
+      }).toList();
+
+      log(
+        'Fetched ${questions.length} questions for subject ID: $subjectId, topic ID: $topicId, section: $sectionType',
+      );
 
       return questions;
     } catch (e) {

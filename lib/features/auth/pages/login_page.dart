@@ -55,17 +55,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SizedBox(height: 24),
                           Text(
                             'Welcome Back',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.gray900,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.gray900,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Sign in to your Marine Prep Admin account',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.gray600,
-                            ),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: AppColors.gray600),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -82,8 +82,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                         keyboardType: TextInputType.emailAddress,
                         validator: FormBuilderValidators.compose([
-                          FormBuilderValidators.required(errorText: 'Email is required'),
-                          FormBuilderValidators.email(errorText: 'Please enter a valid email'),
+                          FormBuilderValidators.required(
+                            errorText: 'Email is required',
+                          ),
+                          FormBuilderValidators.email(
+                            errorText: 'Please enter a valid email',
+                          ),
                         ]),
                       ),
                       const SizedBox(height: 16),
@@ -97,7 +101,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           prefixIcon: const Icon(Iconsax.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Iconsax.eye : Iconsax.eye_slash,
+                              _obscurePassword
+                                  ? Iconsax.eye
+                                  : Iconsax.eye_slash,
                             ),
                             onPressed: () {
                               setState(() {
@@ -108,20 +114,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                         obscureText: _obscurePassword,
                         validator: FormBuilderValidators.compose([
-                          FormBuilderValidators.required(errorText: 'Password is required'),
-                          FormBuilderValidators.minLength(6, errorText: 'Password must be at least 6 characters'),
+                          FormBuilderValidators.required(
+                            errorText: 'Password is required',
+                          ),
+                          FormBuilderValidators.minLength(
+                            6,
+                            errorText: 'Password must be at least 6 characters',
+                          ),
                         ]),
                       ),
-                      const SizedBox(height: 8),
+                      // const SizedBox(height: 8),
 
-                      // Forgot Password Link
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => _showForgotPasswordDialog(context),
-                          child: const Text('Forgot Password?'),
-                        ),
-                      ),
+                      // // Forgot Password Link
+                      // Align(
+                      //   alignment: Alignment.centerRight,
+                      //   child: TextButton(
+                      //     onPressed: () => _showForgotPasswordDialog(context),
+                      //     child: const Text('Forgot Password?'),
+                      //   ),
+                      // ),
                       const SizedBox(height: 24),
 
                       // Sign In Button
@@ -138,43 +149,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : const Text(
                                 'Sign In',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                       ),
                       const SizedBox(height: 16),
 
                       // Divider
-                      Row(
-                        children: [
-                          Expanded(child: Divider(color: AppColors.gray300)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(color: AppColors.gray500),
-                            ),
-                          ),
-                          Expanded(child: Divider(color: AppColors.gray300)),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
+                      // Row(
+                      //   children: [
+                      //     Expanded(child: Divider(color: AppColors.gray300)),
+                      //     Padding(
+                      //       padding: const EdgeInsets.symmetric(horizontal: 16),
+                      //       child: Text(
+                      //         'OR',
+                      //         style: TextStyle(color: AppColors.gray500),
+                      //       ),
+                      //     ),
+                      //     Expanded(child: Divider(color: AppColors.gray300)),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 16),
 
-                      // Sign Up Link
-                      OutlinedButton(
-                        onPressed: () => context.go('/auth/signup'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          'Create Account',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                      ),
+                      // // Sign Up Link
+                      // OutlinedButton(
+                      //   onPressed: () => context.go('/auth/signup'),
+                      //   style: OutlinedButton.styleFrom(
+                      //     padding: const EdgeInsets.symmetric(vertical: 16),
+                      //   ),
+                      //   child: const Text(
+                      //     'Create Account',
+                      //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
@@ -197,10 +213,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       });
 
       try {
-        await ref.read(authNotifierProvider.notifier).signIn(
-          email: email,
-          password: password,
-        );
+        await ref
+            .read(authNotifierProvider.notifier)
+            .signIn(email: email, password: password);
 
         if (mounted) {
           context.go('/');
@@ -234,7 +249,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your email address to receive a password reset link.'),
+            const Text(
+              'Enter your email address to receive a password reset link.',
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: emailController,
@@ -257,7 +274,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               if (email.isNotEmpty) {
                 Navigator.of(context).pop();
                 try {
-                  await ref.read(authNotifierProvider.notifier).resetPassword(email);
+                  await ref
+                      .read(authNotifierProvider.notifier)
+                      .resetPassword(email);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -270,7 +289,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Failed to send reset email: ${e.toString()}'),
+                        content: Text(
+                          'Failed to send reset email: ${e.toString()}',
+                        ),
                         backgroundColor: AppColors.error,
                       ),
                     );
