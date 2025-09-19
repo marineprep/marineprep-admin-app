@@ -31,7 +31,7 @@ class QuestionsService {
         queryBuilder = queryBuilder.eq('section_type', sectionType);
       }
 
-      final response = await queryBuilder.order('created_at', ascending: false);
+      final response = await queryBuilder.order('created_at', ascending: true);
 
       log('Response type: ${response.runtimeType}');
       log('Response length: ${(response as List).length}');
