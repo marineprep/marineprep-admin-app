@@ -1,6 +1,9 @@
 import 'dart:developer';
 import 'dart:typed_data';
+import 'dart:convert';
+import 'package:flutter_quill/quill_delta.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import '../../../core/config/supabase_config.dart';
 import '../models/question.dart';
 
@@ -72,7 +75,7 @@ class QuestionsService {
           .single();
 
       final question = Question.fromJson(response);
-      log('Fetched question: ${question.questionText.substring(0, 50)}...');
+      log('Fetched question: ${question.questionText!.substring(0, 50)}...');
 
       return question;
     } catch (e) {
@@ -115,14 +118,16 @@ class QuestionsService {
 
   // Create new question
   Future<Question> createQuestion({
-    required String questionText,
+    required String questionText, // Legacy field
+    Delta? questionContent, // New rich content
     String? questionImageUrl,
     required String subjectId,
     String? topicId,
     required String sectionType,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
-    required String explanationText,
+    required String explanationText, // Legacy field
+    Delta? explanationContent, // New rich content
     String? explanationImageUrl,
     required int difficultyLevel,
     required bool isActive,
@@ -139,6 +144,9 @@ class QuestionsService {
           .from('questions')
           .insert({
             'question_text': questionText,
+            'question_content': questionContent != null
+                ? jsonEncode(questionContent.toJson())
+                : null,
             'question_image_url': questionImageUrl,
             'subject_id': subjectId,
             'topic_id': topicId,
@@ -146,6 +154,9 @@ class QuestionsService {
             'answer_choices': answerChoicesJson,
             'correct_answer': correctAnswer,
             'explanation_text': explanationText,
+            'explanation_content': explanationContent != null
+                ? jsonEncode(explanationContent.toJson())
+                : null,
             'explanation_image_url': explanationImageUrl,
             'difficulty_level': difficultyLevel,
             'is_active': isActive,
@@ -166,14 +177,16 @@ class QuestionsService {
   // Update existing question
   Future<Question> updateQuestion({
     required String id,
-    required String questionText,
+    required String questionText, // Legacy field
+    Delta? questionContent, // New rich content
     String? questionImageUrl,
     required String subjectId,
     String? topicId,
     required String sectionType,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
-    required String explanationText,
+    required String explanationText, // Legacy field
+    Delta? explanationContent, // New rich content
     String? explanationImageUrl,
     required int difficultyLevel,
     required bool isActive,
@@ -190,6 +203,9 @@ class QuestionsService {
           .from('questions')
           .update({
             'question_text': questionText,
+            'question_content': questionContent != null
+                ? jsonEncode(questionContent.toJson())
+                : null,
             'question_image_url': questionImageUrl,
             'subject_id': subjectId,
             'topic_id': topicId,
@@ -197,6 +213,9 @@ class QuestionsService {
             'answer_choices': answerChoicesJson,
             'correct_answer': correctAnswer,
             'explanation_text': explanationText,
+            'explanation_content': explanationContent != null
+                ? jsonEncode(explanationContent.toJson())
+                : null,
             'explanation_image_url': explanationImageUrl,
             'difficulty_level': difficultyLevel,
             'is_active': isActive,

@@ -151,7 +151,7 @@ class _ManageTestSubjectsDialogState
                                 }
 
                                 return DropdownButtonFormField<String>(
-                                  value: _selectedSubjectId,
+                                  initialValue: _selectedSubjectId,
                                   decoration: const InputDecoration(
                                     labelText: 'Select Subject',
                                     border: OutlineInputBorder(),
@@ -988,7 +988,7 @@ class _PracticeQuestionCard extends ConsumerWidget {
 
             // Question
             Text(
-              question.questionText,
+              question.questionText!,
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),

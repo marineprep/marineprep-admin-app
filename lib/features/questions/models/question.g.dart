@@ -8,7 +8,8 @@ part of 'question.dart';
 
 Question _$QuestionFromJson(Map<String, dynamic> json) => Question(
   id: json['id'] as String,
-  questionText: json['question_text'] as String,
+  questionText: json['question_text'] as String?,
+  questionContent: _deltaFromJson(json['question_content']),
   questionImageUrl: json['question_image_url'] as String?,
   subjectId: json['subject_id'] as String,
   topicId: json['topic_id'] as String?,
@@ -17,7 +18,8 @@ Question _$QuestionFromJson(Map<String, dynamic> json) => Question(
       .map((e) => AnswerChoice.fromJson(e as Map<String, dynamic>))
       .toList(),
   correctAnswer: json['correct_answer'] as String,
-  explanationText: json['explanation_text'] as String,
+  explanationText: json['explanation_text'] as String?,
+  explanationContent: _deltaFromJson(json['explanation_content']),
   explanationImageUrl: json['explanation_image_url'] as String?,
   difficultyLevel: (json['difficulty_level'] as num).toInt(),
   isActive: json['is_active'] as bool,
@@ -28,6 +30,7 @@ Question _$QuestionFromJson(Map<String, dynamic> json) => Question(
 Map<String, dynamic> _$QuestionToJson(Question instance) => <String, dynamic>{
   'id': instance.id,
   'question_text': instance.questionText,
+  'question_content': _deltaToJson(instance.questionContent),
   'question_image_url': instance.questionImageUrl,
   'subject_id': instance.subjectId,
   'topic_id': instance.topicId,
@@ -35,6 +38,7 @@ Map<String, dynamic> _$QuestionToJson(Question instance) => <String, dynamic>{
   'answer_choices': instance.answerChoices,
   'correct_answer': instance.correctAnswer,
   'explanation_text': instance.explanationText,
+  'explanation_content': _deltaToJson(instance.explanationContent),
   'explanation_image_url': instance.explanationImageUrl,
   'difficulty_level': instance.difficultyLevel,
   'is_active': instance.isActive,
@@ -45,6 +49,7 @@ Map<String, dynamic> _$QuestionToJson(Question instance) => <String, dynamic>{
 AnswerChoice _$AnswerChoiceFromJson(Map<String, dynamic> json) => AnswerChoice(
   label: json['label'] as String,
   text: json['text'] as String,
+  content: _deltaFromJson(json['content']),
   imageUrl: json['image_url'] as String?,
 );
 
@@ -52,5 +57,6 @@ Map<String, dynamic> _$AnswerChoiceToJson(AnswerChoice instance) =>
     <String, dynamic>{
       'label': instance.label,
       'text': instance.text,
+      'content': _deltaToJson(instance.content),
       'image_url': instance.imageUrl,
     };

@@ -1,7 +1,9 @@
 import 'dart:developer';
 import 'dart:typed_data';
+import 'package:flutter_quill/quill_delta.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import '../models/question.dart';
 import '../services/questions_service.dart';
 
@@ -50,9 +52,9 @@ class QuestionsFilter {
   final String? sectionType;
 
   const QuestionsFilter({
-    required this.subjectId, 
-    this.topicId, 
-    this.sectionType
+    required this.subjectId,
+    this.topicId,
+    this.sectionType,
   });
 
   @override
@@ -65,7 +67,8 @@ class QuestionsFilter {
           sectionType == other.sectionType;
 
   @override
-  int get hashCode => subjectId.hashCode ^ topicId.hashCode ^ sectionType.hashCode;
+  int get hashCode =>
+      subjectId.hashCode ^ topicId.hashCode ^ sectionType.hashCode;
 }
 
 class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
@@ -98,13 +101,15 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
   }
 
   Future<void> addQuestion({
-    required String questionText,
+    required String questionText, // Legacy field
+    Delta? questionContent, // New rich content
     String? questionImageUrl,
     required String sectionType,
     String? topicId,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
-    required String explanationText,
+    required String explanationText, // Legacy field
+    Delta? explanationContent, // New rich content
     String? explanationImageUrl,
     required int difficultyLevel,
     required bool isActive,
@@ -114,6 +119,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
 
       await _service.createQuestion(
         questionText: questionText,
+        questionContent: questionContent,
         questionImageUrl: questionImageUrl,
         subjectId: _filter.subjectId,
         topicId: topicId,
@@ -121,6 +127,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         answerChoices: answerChoices,
         correctAnswer: correctAnswer,
         explanationText: explanationText,
+        explanationContent: explanationContent,
         explanationImageUrl: explanationImageUrl,
         difficultyLevel: difficultyLevel,
         isActive: isActive,
@@ -142,13 +149,15 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
 
   Future<void> updateQuestion({
     required String id,
-    required String questionText,
+    required String questionText, // Legacy field
+    Delta? questionContent, // New rich content
     String? questionImageUrl,
     required String sectionType,
     String? topicId,
     required List<AnswerChoice> answerChoices,
     required String correctAnswer,
-    required String explanationText,
+    required String explanationText, // Legacy field
+    Delta? explanationContent, // New rich content
     String? explanationImageUrl,
     required int difficultyLevel,
     required bool isActive,
@@ -159,6 +168,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
       await _service.updateQuestion(
         id: id,
         questionText: questionText,
+        questionContent: questionContent,
         questionImageUrl: questionImageUrl,
         subjectId: _filter.subjectId,
         topicId: topicId,
@@ -166,6 +176,7 @@ class QuestionsNotifier extends StateNotifier<AsyncValue<List<Question>>> {
         answerChoices: answerChoices,
         correctAnswer: correctAnswer,
         explanationText: explanationText,
+        explanationContent: explanationContent,
         explanationImageUrl: explanationImageUrl,
         difficultyLevel: difficultyLevel,
         isActive: isActive,

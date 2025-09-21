@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/question.dart';
 import '../providers/questions_provider.dart';
 import '../services/questions_service.dart';
+import '../../shared/widgets/rich_text_editor.dart';
 
 class AddQuestionDialog extends ConsumerStatefulWidget {
   final String subjectId;
@@ -33,12 +35,14 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   bool _isLoading = false;
   bool _hasUnsavedChanges = false;
 
-  // Answer choices
-  final List<TextEditingController> _choiceControllers = [
-    TextEditingController(),
-    TextEditingController(),
-    TextEditingController(),
-    TextEditingController(),
+  // Rich text controllers
+  late QuillController _questionController;
+  late QuillController _explanationController;
+  final List<QuillController> _choiceControllers = [
+    QuillController.basic(),
+    QuillController.basic(),
+    QuillController.basic(),
+    QuillController.basic(),
   ];
 
   // Images
@@ -58,11 +62,18 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   @override
   void initState() {
     super.initState();
+
+    // Initialize controllers
+    _questionController = QuillController.basic();
+    _explanationController = QuillController.basic();
+
     if (isEditing) {
       _initializeEditData();
     }
 
     // Listen to form changes
+    _questionController.addListener(_markAsChanged);
+    _explanationController.addListener(_markAsChanged);
     for (final controller in _choiceControllers) {
       controller.addListener(_markAsChanged);
     }
@@ -71,9 +82,21 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   void _initializeEditData() {
     final question = widget.question!;
 
+    // Initialize question content
+    _questionController.document = Document.fromDelta(
+      question.getQuestionDelta(),
+    );
+
+    // Initialize explanation content
+    _explanationController.document = Document.fromDelta(
+      question.getExplanationDelta(),
+    );
+
     // Initialize answer choices
     for (int i = 0; i < question.answerChoices.length && i < 4; i++) {
-      _choiceControllers[i].text = question.answerChoices[i].text;
+      _choiceControllers[i].document = Document.fromDelta(
+        question.answerChoices[i].getDelta(),
+      );
     }
   }
 
@@ -193,6 +216,11 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
 
   @override
   void dispose() {
+    _questionController.removeListener(_markAsChanged);
+    _explanationController.removeListener(_markAsChanged);
+    _questionController.dispose();
+    _explanationController.dispose();
+
     for (final controller in _choiceControllers) {
       controller.removeListener(_markAsChanged);
       controller.dispose();
@@ -243,20 +271,22 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                   ),
                   const SizedBox(height: 16),
 
-                  FormBuilderTextField(
-                    name: 'questionText',
-                    initialValue: widget.question?.questionText,
-                    decoration: const InputDecoration(
-                      labelText: 'Question Text',
-                      hintText: 'Enter your question here...',
-                      prefixIcon: Icon(Iconsax.message_question),
-                    ),
-                    maxLines: 3,
+                  RichTextEditor(
+                    controller: _questionController,
+                    labelText: 'Question Text',
+                    hintText: 'Enter your question here...',
+                    isRequired: true,
+                    maxLines: 4,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Question text is required';
+                      }
+                      if (value.trim().length < 10) {
+                        return 'Question text must be at least 10 characters';
+                      }
+                      return null;
+                    },
                     onChanged: (value) => _markAsChanged(),
-                    validator: FormBuilderValidators.compose([
-                      FormBuilderValidators.required(),
-                      FormBuilderValidators.minLength(10),
-                    ]),
                   ),
                   const SizedBox(height: 16),
 
@@ -322,13 +352,10 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: TextFormField(
+                                child: CompactRichTextEditor(
                                   controller: _choiceControllers[index],
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Enter choice $label (or upload image)',
-                                    border: const OutlineInputBorder(),
-                                  ),
+                                  hintText:
+                                      'Enter choice $label (or upload image)',
                                   onChanged: (value) => _markAsChanged(),
                                 ),
                               ),
@@ -397,20 +424,22 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                   ),
                   const SizedBox(height: 16),
 
-                  FormBuilderTextField(
-                    name: 'explanationText',
-                    initialValue: widget.question?.explanationText,
-                    decoration: const InputDecoration(
-                      labelText: 'Explanation Text',
-                      hintText: 'Explain why this is the correct answer...',
-                      prefixIcon: Icon(Iconsax.note_text),
-                    ),
-                    maxLines: 3,
+                  RichTextEditor(
+                    controller: _explanationController,
+                    labelText: 'Explanation Text',
+                    hintText: 'Explain why this is the correct answer...',
+                    isRequired: true,
+                    maxLines: 4,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Explanation text is required';
+                      }
+                      if (value.trim().length < 10) {
+                        return 'Explanation text must be at least 10 characters';
+                      }
+                      return null;
+                    },
                     onChanged: (value) => _markAsChanged(),
-                    validator: FormBuilderValidators.compose([
-                      FormBuilderValidators.required(),
-                      FormBuilderValidators.minLength(10),
-                    ]),
                   ),
                   const SizedBox(height: 16),
 
@@ -510,13 +539,62 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
   }
 
   Future<void> _saveQuestion() async {
+    // Validate rich text fields
+    final questionText = _questionController.document.toPlainText().trim();
+    final explanationText = _explanationController.document
+        .toPlainText()
+        .trim();
+
+    if (questionText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question text is required'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (questionText.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question text must be at least 10 characters'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (explanationText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Explanation text is required'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    if (explanationText.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Explanation text must be at least 10 characters'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.saveAndValidate()) {
       return;
     }
 
     // Validate answer choices - each choice must have either text or image
     for (int i = 0; i < 4; i++) {
-      final hasText = _choiceControllers[i].text.trim().isNotEmpty;
+      final hasText = _choiceControllers[i].document
+          .toPlainText()
+          .trim()
+          .isNotEmpty;
       final hasImage =
           _choiceImages[i] != null ||
           (widget.question != null &&
@@ -596,26 +674,36 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       // Create answer choices
       final answerChoices = <AnswerChoice>[];
       for (int i = 0; i < 4; i++) {
+        final choiceText = _choiceControllers[i].document.toPlainText().trim();
+        final choiceDelta = _choiceControllers[i].document.toDelta();
+
         answerChoices.add(
           AnswerChoice(
             label: String.fromCharCode(65 + i), // A, B, C, D
-            text: _choiceControllers[i].text.trim(),
+            text: choiceText, // Keep legacy text for backwards compatibility
+            content: choiceDelta, // New rich content
             imageUrl: choiceImageUrls[i],
           ),
         );
       }
 
+      // Get rich text content
+      final questionContent = _questionController.document.toDelta();
+      final explanationContent = _explanationController.document.toDelta();
+
       if (isEditing) {
         // Update existing question
         await questionsNotifier.updateQuestion(
           id: widget.question!.id,
-          questionText: formData['questionText'],
+          questionText: questionText, // Legacy field
+          questionContent: questionContent, // New rich content
           questionImageUrl: questionImageUrl,
           sectionType: widget.sectionType,
           topicId: widget.topicId,
           answerChoices: answerChoices,
           correctAnswer: formData['correctAnswer'],
-          explanationText: formData['explanationText'],
+          explanationText: explanationText, // Legacy field
+          explanationContent: explanationContent, // New rich content
           explanationImageUrl: explanationImageUrl,
           difficultyLevel: formData['difficultyLevel'],
           isActive: formData['isActive'] ?? true,
@@ -623,13 +711,15 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       } else {
         // Create new question
         await questionsNotifier.addQuestion(
-          questionText: formData['questionText'],
+          questionText: questionText, // Legacy field
+          questionContent: questionContent, // New rich content
           questionImageUrl: questionImageUrl,
           sectionType: widget.sectionType,
           topicId: widget.topicId,
           answerChoices: answerChoices,
           correctAnswer: formData['correctAnswer'],
-          explanationText: formData['explanationText'],
+          explanationText: explanationText, // Legacy field
+          explanationContent: explanationContent, // New rich content
           explanationImageUrl: explanationImageUrl,
           difficultyLevel: formData['difficultyLevel'],
           isActive: formData['isActive'] ?? true,

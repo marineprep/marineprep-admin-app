@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
 import '../../features/subjects/pages/subjects_page.dart';
@@ -14,7 +13,7 @@ class AppRouter {
   static GoRouter get router => _router;
 
   static final _router = GoRouter(
-    initialLocation: '/auth/login',
+    initialLocation: '/migration',
     routes: [
       // Auth routes (public)
       GoRoute(
@@ -27,21 +26,17 @@ class AppRouter {
         name: 'signup',
         builder: (context, state) => const SignupPage(),
       ),
-      
+
       // Protected routes (require authentication)
       GoRoute(
         path: '/',
         name: 'dashboard',
-        builder: (context, state) => const AuthWrapper(
-          child: DashboardPage(),
-        ),
+        builder: (context, state) => const AuthWrapper(child: DashboardPage()),
       ),
       GoRoute(
         path: '/subjects',
         name: 'subjects',
-        builder: (context, state) => const AuthWrapper(
-          child: SubjectsPage(),
-        ),
+        builder: (context, state) => const AuthWrapper(child: SubjectsPage()),
         routes: [
           GoRoute(
             path: '/:subjectId',
@@ -58,23 +53,19 @@ class AppRouter {
       GoRoute(
         path: '/question-bank',
         name: 'question-bank',
-        builder: (context, state) => const AuthWrapper(
-          child: QuestionBankPage(),
-        ),
+        builder: (context, state) =>
+            const AuthWrapper(child: QuestionBankPage()),
       ),
       GoRoute(
         path: '/practice-test',
         name: 'practice-test',
-        builder: (context, state) => const AuthWrapper(
-          child: PracticeTestPage(),
-        ),
+        builder: (context, state) =>
+            const AuthWrapper(child: PracticeTestPage()),
       ),
       GoRoute(
         path: '/roadmap',
         name: 'roadmap',
-        builder: (context, state) => const AuthWrapper(
-          child: RoadmapPage(),
-        ),
+        builder: (context, state) => const AuthWrapper(child: RoadmapPage()),
       ),
     ],
   );

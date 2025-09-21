@@ -505,7 +505,7 @@ class _QuestionCard extends ConsumerWidget {
 
             // Question
             Text(
-              question.questionText,
+              question.getQuestionText(),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -619,7 +619,7 @@ class _QuestionCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            choice.text,
+                            choice.getText(),
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           if (choice.imageUrl != null) ...[
