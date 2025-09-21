@@ -13,7 +13,7 @@ class AppRouter {
   static GoRouter get router => _router;
 
   static final _router = GoRouter(
-    initialLocation: '/migration',
+    initialLocation: '/auth/login',
     routes: [
       // Auth routes (public)
       GoRoute(
