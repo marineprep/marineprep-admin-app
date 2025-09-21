@@ -325,16 +325,11 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
                                 child: TextFormField(
                                   controller: _choiceControllers[index],
                                   decoration: InputDecoration(
-                                    hintText: 'Enter choice $label',
+                                    hintText:
+                                        'Enter choice $label (or upload image)',
                                     border: const OutlineInputBorder(),
                                   ),
                                   onChanged: (value) => _markAsChanged(),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Please enter choice $label';
-                                    }
-                                    return null;
-                                  },
                                 ),
                               ),
                             ],
@@ -519,13 +514,20 @@ class _AddQuestionDialogState extends ConsumerState<AddQuestionDialog> {
       return;
     }
 
-    // Validate answer choices
+    // Validate answer choices - each choice must have either text or image
     for (int i = 0; i < 4; i++) {
-      if (_choiceControllers[i].text.trim().isEmpty) {
+      final hasText = _choiceControllers[i].text.trim().isNotEmpty;
+      final hasImage =
+          _choiceImages[i] != null ||
+          (widget.question != null &&
+              widget.question!.answerChoices.length > i &&
+              widget.question!.answerChoices[i].imageUrl != null);
+
+      if (!hasText && !hasImage) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Please fill in choice ${String.fromCharCode(65 + i)}',
+              'Choice ${String.fromCharCode(65 + i)} must have either text or image',
             ),
             backgroundColor: AppColors.error,
           ),
