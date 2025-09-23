@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_layout.dart';
+import '../../shared/widgets/rich_text_editor.dart';
 import '../../subjects/providers/subjects_provider.dart';
 import '../../subjects/providers/topics_provider.dart';
 import '../widgets/add_question_dialog.dart';
@@ -503,13 +504,8 @@ class _QuestionCard extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // Question
-            Text(
-              question.getQuestionText(),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
+            // Question (render styled Quill content)
+            RichTextViewer(content: question.getQuestionDelta()),
             if (question.topicId != null) ...[
               const SizedBox(height: 8),
               Container(
